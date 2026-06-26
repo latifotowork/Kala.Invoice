@@ -1176,11 +1176,16 @@ const Cloud = {
   async _doPush(type, data) {
     try {
       Cloud.setStatus('syncing');
-      const json = JSON.stringify(data);
-      const b64  = btoa(unescape(encodeURIComponent(json)));
-      const url  = `${Cloud.url()}?action=${type}&payload=${encodeURIComponent(b64)}`;
-      // no-cors: browser tidak bisa baca response, tapi request tetap dikirim ke Apps Script
-      await fetch(url, { mode: 'no-cors' });
+      // Kirim via POST (body), bukan GET (query string) — supaya tidak kena
+      // limit panjang URL saat data sudah banyak. Content-Type harus
+      // 'text/plain' agar dianggap "simple request" (tidak memicu CORS
+      // preflight OPTIONS, yang tidak didukung Apps Script Web App).
+      await fetch(Cloud.url(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: type, data: data })
+      });
       Cloud.setStatus('ok');
       setTimeout(() => Cloud.setStatus('idle'), 3000);
     } catch (err) {
@@ -1224,9 +1229,16 @@ const Cloud = {
     Cloud.setStatus('syncing');
     try {
       const payload = { documents, clients, items: itemsDB, settings };
-      const b64  = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-      const url  = `${Cloud.url()}?action=sync_all&payload=${encodeURIComponent(b64)}`;
-      await fetch(url, { mode: 'no-cors' });
+      // POST (body), bukan GET (query string) — payload "Upload Semua Data"
+      // bisa puluhan KB, jauh melewati limit panjang URL kalau dikirim
+      // sebagai query string base64 (itu yang sebelumnya menyebabkan
+      // 400 Bad Request / net::ERR_FAILED).
+      await fetch(Cloud.url(), {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ type: 'sync_all', data: payload })
+      });
       Cloud.setStatus('ok');
       setTimeout(() => Cloud.setStatus('idle'), 3000);
       showToast('✅ Semua data berhasil disinkronkan!', 'success');

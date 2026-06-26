@@ -1173,51 +1173,14 @@ const Cloud = {
     Cloud._queue[type] = setTimeout(() => Cloud._doPush(type, data), 800);
   },
 
-  // Helper: kirim ke Apps Script — otomatis chunk jika data array besar
-  // Apps Script hanya support GET (CORS), jadi payload harus muat di URL
-  // Limit aman: ~6000 karakter URL total
-  async _send(action, payload) {
-    const baseUrl = Cloud.url();
-
-    // Jika payload bukan array atau kecil, kirim langsung
-    const json = JSON.stringify(payload);
-    const b64  = btoa(unescape(encodeURIComponent(json)));
-
-    if (b64.length <= 5000) {
-      const url = `${baseUrl}?action=${action}&payload=${encodeURIComponent(b64)}`;
-      const res = await fetch(url, { redirect: 'follow' });
-      return res.json();
-    }
-
-    // Payload terlalu besar → kirim dalam chunks (hanya untuk array)
-    if (!Array.isArray(payload)) {
-      // Bukan array (misal settings object) — kirim apa adanya, semoga muat
-      const url = `${baseUrl}?action=${action}&payload=${encodeURIComponent(b64)}`;
-      const res = await fetch(url, { redirect: 'follow' });
-      return res.json();
-    }
-
-    // Pecah array menjadi chunk kecil dan kirim satu per satu
-    // Apps Script akan overwrite sheet di chunk pertama (mode=overwrite),
-    // lalu append di chunk berikutnya (mode=append)
-    const CHUNK = 20; // item per request
-    for (let i = 0; i < payload.length; i += CHUNK) {
-      const chunk = payload.slice(i, i + CHUNK);
-      const mode  = i === 0 ? 'overwrite' : 'append';
-      const chunkJson = JSON.stringify(chunk);
-      const chunkB64  = btoa(unescape(encodeURIComponent(chunkJson)));
-      const url = `${baseUrl}?action=${action}&payload=${encodeURIComponent(chunkB64)}&mode=${mode}`;
-      const res = await fetch(url, { redirect: 'follow' });
-      const result = await res.json();
-      if (!result.ok) throw new Error(result.error || `Chunk ${i} gagal`);
-    }
-    return { ok: true };
-  },
-
   async _doPush(type, data) {
     try {
       Cloud.setStatus('syncing');
-      const result = await Cloud._send(type, data);
+      const json = JSON.stringify(data);
+      const b64  = btoa(unescape(encodeURIComponent(json)));
+      const url  = `${Cloud.url()}?action=${type}&payload=${encodeURIComponent(b64)}`;
+      const res  = await fetch(url, { redirect: 'follow' });
+      const result = await res.json();
       if (result.ok) { Cloud.setStatus('ok'); setTimeout(() => Cloud.setStatus('idle'), 3000); }
       else { Cloud.setStatus('error'); console.error('Sync error:', result.error); }
     } catch (err) {
@@ -1231,7 +1194,7 @@ const Cloud = {
     if (!Cloud.enabled()) { Cloud.setStatus('off'); return false; }
     try {
       Cloud.setStatus('syncing');
-      const res = await fetch(Cloud.url() + '?action=all');
+      const res  = await fetch(Cloud.url() + '?action=all', { redirect: 'follow' });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
 
@@ -1255,28 +1218,21 @@ const Cloud = {
     }
   },
 
-  // Push semua data ke cloud sekaligus — kirim per-koleksi agar URL tidak terlalu panjang
+  // Push semua data ke cloud sekaligus (untuk migrasi / full sync)
   async pushAll() {
     if (!Cloud.enabled()) return;
     Cloud.setStatus('syncing');
     try {
-      // Kirim tiap koleksi satu per satu supaya payload lebih kecil
-      const steps = [
-        { action: 'sync_docs',     data: documents },
-        { action: 'sync_clients',  data: clients   },
-        { action: 'sync_items',    data: itemsDB   },
-        { action: 'sync_settings', data: settings  },
-      ];
-      for (const step of steps) {
-        const result = await Cloud._send(step.action, step.data);
-        if (!result.ok) throw new Error(result.error || step.action + ' gagal');
-      }
-      Cloud.setStatus('ok');
-      setTimeout(() => Cloud.setStatus('idle'), 3000);
-      showToast('✅ Semua data berhasil disinkronkan!', 'success');
+      const payload = { documents, clients, items: itemsDB, settings };
+      const b64  = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+      const url  = `${Cloud.url()}?action=sync_all&payload=${encodeURIComponent(b64)}`;
+      const res  = await fetch(url, { redirect: 'follow' });
+      const json = await res.json();
+      if (json.ok) { Cloud.setStatus('ok'); setTimeout(() => Cloud.setStatus('idle'), 3000); showToast('✅ Semua data berhasil disinkronkan!', 'success'); }
+      else { Cloud.setStatus('error'); showToast('❌ Sync gagal: ' + json.error, 'error'); }
     } catch (err) {
       Cloud.setStatus('error');
-      showToast('❌ Sync gagal: ' + err.message, 'error');
+      showToast('❌ Tidak bisa terhubung ke server sync', 'error');
       console.error('pushAll error:', err);
     }
   },

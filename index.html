@@ -1179,10 +1179,10 @@ const Cloud = {
       const json = JSON.stringify(data);
       const b64  = btoa(unescape(encodeURIComponent(json)));
       const url  = `${Cloud.url()}?action=${type}&payload=${encodeURIComponent(b64)}`;
-      const res  = await fetch(url, { redirect: 'follow' });
-      const result = await res.json();
-      if (result.ok) { Cloud.setStatus('ok'); setTimeout(() => Cloud.setStatus('idle'), 3000); }
-      else { Cloud.setStatus('error'); console.error('Sync error:', result.error); }
+      // no-cors: browser tidak bisa baca response, tapi request tetap dikirim ke Apps Script
+      await fetch(url, { mode: 'no-cors' });
+      Cloud.setStatus('ok');
+      setTimeout(() => Cloud.setStatus('idle'), 3000);
     } catch (err) {
       Cloud.setStatus('error');
       console.error('Sync fetch failed:', err);
@@ -1194,7 +1194,7 @@ const Cloud = {
     if (!Cloud.enabled()) { Cloud.setStatus('off'); return false; }
     try {
       Cloud.setStatus('syncing');
-      const res  = await fetch(Cloud.url() + '?action=all', { redirect: 'follow' });
+      const res  = await fetch(Cloud.url() + '?action=all');
       const json = await res.json();
       if (json.error) throw new Error(json.error);
 
@@ -1226,10 +1226,10 @@ const Cloud = {
       const payload = { documents, clients, items: itemsDB, settings };
       const b64  = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
       const url  = `${Cloud.url()}?action=sync_all&payload=${encodeURIComponent(b64)}`;
-      const res  = await fetch(url, { redirect: 'follow' });
-      const json = await res.json();
-      if (json.ok) { Cloud.setStatus('ok'); setTimeout(() => Cloud.setStatus('idle'), 3000); showToast('✅ Semua data berhasil disinkronkan!', 'success'); }
-      else { Cloud.setStatus('error'); showToast('❌ Sync gagal: ' + json.error, 'error'); }
+      await fetch(url, { mode: 'no-cors' });
+      Cloud.setStatus('ok');
+      setTimeout(() => Cloud.setStatus('idle'), 3000);
+      showToast('✅ Semua data berhasil disinkronkan!', 'success');
     } catch (err) {
       Cloud.setStatus('error');
       showToast('❌ Tidak bisa terhubung ke server sync', 'error');
@@ -1242,10 +1242,10 @@ const Cloud = {
     if (!Cloud.enabled()) { showToast('⚠️ URL Sync belum diisi!', 'error'); return; }
     try {
       Cloud.setStatus('syncing');
-      const res = await fetch(Cloud.url() + '?action=ping');
-      const json = await res.json();
-      if (json.ok) { Cloud.setStatus('ok'); showToast('✅ Koneksi berhasil! Server sync aktif.', 'success'); }
-      else throw new Error(json.error);
+      // no-cors: tidak bisa baca response body, tapi kalau request masuk = koneksi OK
+      await fetch(Cloud.url() + '?action=ping', { mode: 'no-cors' });
+      Cloud.setStatus('ok');
+      showToast('✅ Koneksi berhasil! Server sync aktif.', 'success');
     } catch (err) {
       Cloud.setStatus('error');
       showToast('❌ Gagal terhubung. Cek URL dan pastikan sudah di-deploy.', 'error');

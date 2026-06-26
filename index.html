@@ -331,43 +331,122 @@
   .import-progress { display: none; font-size: 12px; color: var(--mid); padding: 8px 0; }
   .import-progress.show { display: block; }
 
+  /* ── DASHBOARD GRID HELPERS ── */
+  .dash-grid-2 { grid-template-columns: 1fr 1fr; }
+  .dash-grid-main { grid-template-columns: 3fr 2fr; }
+
+  /* ── TABLET (iPad landscape & portrait) ── */
+  @media (max-width: 1024px) {
+    :root { --sidebar-w: 220px; }
+    .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .settings-grid { grid-template-columns: 1fr; }
+    #doc-form-panel { max-width: 100%; }
+  }
+
   @media (max-width: 900px) {
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
     .settings-grid { grid-template-columns: 1fr; }
+    .dash-grid-2, .dash-grid-main { grid-template-columns: 1fr !important; }
   }
 
+  /* ── MOBILE (≤ 650px) ── */
   @media (max-width: 650px) {
     :root { --sidebar-w: 260px; }
+
+    /* Sidebar slide-in */
     #sidebar { transform: translateX(-100%); transition: transform .25s; z-index: 100; }
     #sidebar.open { transform: translateX(0); }
-    #main { margin-left: 0 !important; padding-bottom: 58px; }
-    #topbar { padding: 0 14px; height: 54px; }
-    #topbar h1 { font-size: 16px; }
+
+    /* Main layout */
+    #main { margin-left: 0 !important; padding-bottom: 68px; }
+    #topbar { padding: 0 12px; height: 52px; }
+    #topbar h1 { font-size: 15px; }
     #hamburger { display: block; }
     #bottom-nav { display: flex; }
-    .page { padding: 16px; }
-    .stat-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
-    .stat-card { padding: 14px; }
-    .stat-card .value { font-size: 20px; }
+    .page { padding: 12px; }
+
+    /* Stat cards */
+    .stat-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    .stat-card { padding: 12px 10px; }
+    .stat-card .value { font-size: 17px; }
+    .stat-card .label { font-size: 10px; }
+    .stat-card .sub { font-size: 10px; }
+
+    /* Dashboard inline grids → single column */
+    .dash-grid-2, .dash-grid-main { grid-template-columns: 1fr !important; }
+
+    /* Forms */
     .form-row, .form-row-3 { grid-template-columns: 1fr; }
     .settings-grid { grid-template-columns: 1fr; }
-    .table-wrap { overflow-x: auto; }
-    table { min-width: 520px; }
+    #doc-form-panel { padding: 12px; max-width: 100%; }
+    .form-section { margin-bottom: 18px; padding-bottom: 18px; }
+    .totals-box { padding: 12px; }
+
+    /* Tables — horizontal scroll */
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    table { min-width: 540px; }
+
+    /* Buttons */
+    .btn { font-size: 12px; padding: 7px 14px; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+    #topbar-actions .btn span { display: none; }
+    #topbar-actions { gap: 6px; }
+    .action-btns { gap: 4px; flex-wrap: wrap; }
+
+    /* Lists / grids */
     .client-grid { grid-template-columns: 1fr; }
     .item-db-grid { grid-template-columns: 1fr 1fr; }
-    .modal { min-width: unset; padding: 20px 16px; }
-    .flex-between { flex-direction: column; align-items: stretch; }
-    .flex-between .search-bar { max-width: 100%; }
-    .flex-between > div, .flex-between > button { width: 100%; }
-    .search-bar { max-width: 100%; }
-    #doc-form-panel { padding: 16px; max-width: 100%; }
-    .btn { font-size: 13px; }
-    #topbar-actions .btn span { display: none; }
+
+    /* Modal */
+    .modal { min-width: unset; width: 95%; padding: 18px 14px; border-radius: 10px; }
+
+    /* Flex-between stacking */
+    .flex-between { flex-direction: column; align-items: stretch; gap: 8px; }
+    .flex-between .search-bar,
+    .flex-between > div,
+    .flex-between > button { width: 100%; max-width: 100%; }
+
+    /* Search bar */
+    .search-bar { max-width: 100%; font-size: 14px; }
+
+    /* Top-bar actions: hide text labels, keep icons */
+    #topbar-actions .btn-primary span,
+    #topbar-actions .btn-gold span { display: none; }
+
+    /* Settings page: full-width cards */
+    .settings-card { padding: 14px; }
+
+    /* Tab bar — scrollable */
+    .tab-bar { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px; }
+    .tab-btn { padding: 9px 13px; font-size: 12px; }
+
+    /* Toast */
+    #toast { bottom: 72px; right: 12px; left: 12px; text-align: center; font-size: 12px; }
+
+    /* Print preview wrapper scroll */
+    #doc-preview-wrap { overflow-x: auto; }
+
+    /* Discount/tax row in form stays side by side */
+    #tax-detail-wrap .form-row { grid-template-columns: 1fr 1fr; }
+
+    /* Period selector on dashboard */
+    #page-dashboard .tab-btn { padding: 7px 10px; font-size: 11px; }
+
+    /* Doc status filter row wrap */
+    #page-documents .flex-between > div { flex-direction: column; gap: 6px; }
+    #page-documents .flex-between > div select { max-width: 100%; width: 100%; }
   }
 
+  /* ── SMALL PHONES (≤ 400px) ── */
   @media (max-width: 400px) {
     .item-db-grid { grid-template-columns: 1fr; }
     .stat-grid { grid-template-columns: 1fr 1fr; }
+    .stat-card .value { font-size: 15px; }
+    .page { padding: 10px; }
+    #topbar h1 { font-size: 14px; }
+    .btn { padding: 6px 10px; font-size: 11px; }
+    .modal { padding: 16px 12px; }
+    #toast { font-size: 11px; padding: 10px 14px; }
   }
 </style>
 </head>
@@ -504,7 +583,7 @@
     </div>
 
     <!-- ROW 2: Tagihan jatuh tempo + Grafik bulanan -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+    <div class="dash-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
 
       <!-- TAGIHAN JATUH TEMPO -->
       <div class="settings-card" style="padding:16px;margin:0">
@@ -534,7 +613,7 @@
     </div>
 
     <!-- ROW 4: Invoice terbaru & klien teratas -->
-    <div style="display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px">
+    <div class="dash-grid-2 dash-grid-main" style="display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px">
 
       <!-- INVOICE TERBARU -->
       <div class="settings-card" style="padding:16px;margin:0">

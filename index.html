@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kala Doc — Business Documents</title>
+<title>Kala Project — Business Documents</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -379,7 +379,7 @@
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div id="sidebar-logo" onclick="navigate('dashboard');closeSidebar()">
-    kala doc
+    Kala Project
     <small>Business Documents</small>
   </div>
 
@@ -863,7 +863,7 @@
     <div class="settings-grid">
       <div class="settings-card">
         <h3>🏢 Profil Bisnis</h3>
-        <div class="form-group"><label>Nama Brand</label><input type="text" id="s-brand-name" placeholder="kala doc" oninput="saveSetting()"></div>
+        <div class="form-group"><label>Nama Brand</label><input type="text" id="s-brand-name" placeholder="Kala Project" oninput="saveSetting()"></div>
         <div class="form-group"><label>Sub-judul</label><input type="text" id="s-brand-sub" placeholder="Photography & Videography" oninput="saveSetting()"></div>
         <div class="form-group"><label>Nama Pemilik</label><input type="text" id="s-owner-name" oninput="saveSetting()"></div>
         <div class="form-group"><label>Jabatan / Posisi</label><input type="text" id="s-owner-position" placeholder="Cth: Photographer, Creative Director" oninput="saveSetting()"></div>
@@ -962,7 +962,7 @@
         </div>
         <div class="gsheet-info" style="background:#e8f5e9;border-color:#a5d6a7;color:#1b5e20;margin-bottom:16px">
           <strong>Cara setup (5 menit):</strong><br>
-          1. Download file <b>kala doc_apps_script.gs</b> dari link setup<br>
+          1. Download file <b>Kala Project_apps_script.gs</b> dari link setup<br>
           2. Buka <a href="https://script.google.com" target="_blank" style="color:#1b5e20"><b>script.google.com</b></a> → New Project → paste kodenya<br>
           3. Klik <b>Deploy → New Deployment → Web App</b><br>
           4. Execute as: <b>Me</b> · Who has access: <b>Anyone</b> → Deploy<br>
@@ -1907,7 +1907,7 @@ function downloadHistoryTemplate() {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = 'template_import_historis_kala doc.csv';
+  a.href = url; a.download = 'template_import_historis_Kala Project.csv';
   document.body.appendChild(a); a.click();
   document.body.removeChild(a); URL.revokeObjectURL(url);
   showToast('📥 Template CSV berhasil didownload!', 'success');
@@ -2303,7 +2303,7 @@ function updateSettingsBrandPreview() {
   const el = document.getElementById('s-brand-preview');
   if (!el) return;
   const mode = settings.brandMode || 'both';
-  const name = settings.brandName || 'kala doc';
+  const name = settings.brandName || 'Kala Project';
   const sub = settings.brandSub || '';
   let html = '';
   if ((mode === 'both' || mode === 'logo') && logoDataUrl) {
@@ -2329,7 +2329,7 @@ function updateItemMarginPreview() {
 }
 function updatePreview() {
   const type = document.getElementById('doc-type-select').value;
-  const brandName = settings.brandName || 'kala doc';
+  const brandName = settings.brandName || 'Kala Project';
   const brandSub  = settings.brandSub  || '';
   const brandModeActive = settings.brandMode || 'both';
   const docNum    = document.getElementById('doc-number').value || '-';

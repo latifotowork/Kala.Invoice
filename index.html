@@ -1262,16 +1262,31 @@ const Cloud = {
   async _doPush(type, data) {
     try {
       Cloud.setStatus('syncing');
-      // Kirim via POST (body), bukan GET (query string) — supaya tidak kena
-      // limit panjang URL saat data sudah banyak. Content-Type harus
-      // 'text/plain' agar dianggap "simple request" (tidak memicu CORS
-      // preflight OPTIONS, yang tidak didukung Apps Script Web App).
-      await fetch(Cloud.url(), {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: type, data: data })
-      });
+      // PENTING: backend (Code.gs) hanya punya doGet() sebagai entry point aktif.
+      // Semua operasi tulis dikirim lewat GET dengan payload di-base64-encode
+      // sebagai query parameter ?payload=... (bukan lewat POST body), karena
+      // Apps Script Web App men-redirect request ke script.googleusercontent.com
+      // dan body POST sering hilang saat redirect itu terjadi di WebKit/Safari.
+      // Format ini harus sama persis dengan yang dibaca doGet(e) di Code.gs:
+      //   const raw = e.parameter.payload || '';
+      //   const decoded = Utilities.newBlob(Utilities.base64Decode(raw)).getDataAsString();
+      //   payload = JSON.parse(decoded);
+      const payload = btoa(unescape(encodeURIComponent(JSON.stringify(data))));
+      const url = Cloud.url() + '?action=' + encodeURIComponent(type) + '&payload=' + encodeURIComponent(payload);
+
+      // GUARD: kalau data koleksi ini sendiri sudah terlalu besar untuk satu
+      // URL GET (~8000 karakter batas aman), jangan kirim diam-diam dan gagal —
+      // beri tahu user secara jelas supaya tidak bingung data tidak ke-sync.
+      if (url.length > 7500) {
+        Cloud.setStatus('error');
+        showToast('⚠️ Data "' + type + '" terlalu besar untuk sync sekali jalan. Hubungi developer untuk upgrade ke metode POST.', 'error');
+        console.warn('Push dibatalkan: URL terlalu panjang (' + url.length + ' karakter) untuk type=' + type);
+        return;
+      }
+
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json && json.error) throw new Error(json.error);
       Cloud.setStatus('ok');
       setTimeout(() => Cloud.setStatus('idle'), 3000);
     } catch (err) {
@@ -1323,17 +1338,29 @@ const Cloud = {
     if (!Cloud.enabled()) return;
     Cloud.setStatus('syncing');
     try {
-      const payload = { documents, clients, items: itemsDB, settings };
-      // POST (body), bukan GET (query string) — payload "Upload Semua Data"
-      // bisa puluhan KB, jauh melewati limit panjang URL kalau dikirim
-      // sebagai query string base64 (itu yang sebelumnya menyebabkan
-      // 400 Bad Request / net::ERR_FAILED).
-      await fetch(Cloud.url(), {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ type: 'sync_all', data: payload })
-      });
+      const payloadObj = { documents, clients, items: itemsDB, settings };
+      const payload = btoa(unescape(encodeURIComponent(JSON.stringify(payloadObj))));
+      const url = Cloud.url() + '?action=sync_all&payload=' + encodeURIComponent(payload);
+
+      // GUARD: URL GET punya batas panjang aman (~8000 karakter di kebanyakan
+      // browser termasuk Safari). Kalau data sudah banyak (dokumen/klien/item
+      // menumpuk), payload gabungan bisa melebihi batas itu dan request gagal
+      // diam-diam. Kalau terdeteksi terlalu panjang, pecah jadi beberapa
+      // pengiriman terpisah per koleksi (masing-masing jauh lebih kecil).
+      if (url.length > 7000) {
+        await Cloud._doPush('sync_docs', documents);
+        await Cloud._doPush('sync_clients', clients);
+        await Cloud._doPush('sync_items', itemsDB);
+        await Cloud._doPush('sync_settings', settings);
+        Cloud.setStatus('ok');
+        setTimeout(() => Cloud.setStatus('idle'), 3000);
+        showToast('✅ Semua data berhasil disinkronkan (terpisah per bagian karena ukuran besar)!', 'success');
+        return;
+      }
+
+      const res = await fetch(url);
+      const json = await res.json();
+      if (json && json.error) throw new Error(json.error);
       Cloud.setStatus('ok');
       setTimeout(() => Cloud.setStatus('idle'), 3000);
       showToast('✅ Semua data berhasil disinkronkan!', 'success');
@@ -1349,13 +1376,18 @@ const Cloud = {
     if (!Cloud.enabled()) { showToast('⚠️ URL Sync belum diisi!', 'error'); return; }
     try {
       Cloud.setStatus('syncing');
-      // no-cors: tidak bisa baca response body, tapi kalau request masuk = koneksi OK
-      await fetch(Cloud.url() + '?action=ping', { mode: 'no-cors' });
-      Cloud.setStatus('ok');
-      showToast('✅ Koneksi berhasil! Server sync aktif.', 'success');
+      const res = await fetch(Cloud.url() + '?action=ping');
+      const json = await res.json();
+      if (json && json.ok) {
+        Cloud.setStatus('ok');
+        showToast('✅ Koneksi berhasil! Server sync aktif.', 'success');
+      } else {
+        throw new Error((json && json.error) || 'Respons tidak valid');
+      }
     } catch (err) {
       Cloud.setStatus('error');
       showToast('❌ Gagal terhubung. Cek URL dan pastikan sudah di-deploy.', 'error');
+      console.error('ping error:', err);
     }
   }
 };

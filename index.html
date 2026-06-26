@@ -3,11 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Kala Invoice</title>
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231d6c5c'/%3E%3Crect x='14' y='12' width='24' height='3' rx='1.5' fill='%23e1d5b5'/%3E%3Crect x='14' y='19' width='36' height='3' rx='1.5' fill='%23e1d5b5' opacity='.7'/%3E%3Crect x='14' y='26' width='30' height='3' rx='1.5' fill='%23e1d5b5' opacity='.5'/%3E%3Crect x='14' y='36' width='36' height='1.5' rx='.75' fill='%23e1d5b5' opacity='.3'/%3E%3Crect x='14' y='41' width='20' height='1.5' rx='.75' fill='%23e1d5b5' opacity='.3'/%3E%3Crect x='32' y='46' width='18' height='6' rx='3' fill='%23e1d5b5'/%3E%3Ctext x='41' y='51' font-family='Arial' font-size='5' font-weight='700' fill='%231d6c5c' text-anchor='middle'%3ERp%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231d6c5c'/%3E%3Crect x='14' y='12' width='24' height='3' rx='1.5' fill='%23e1d5b5'/%3E%3Crect x='14' y='19' width='36' height='3' rx='1.5' fill='%23e1d5b5' opacity='.7'/%3E%3Crect x='14' y='26' width='30' height='3' rx='1.5' fill='%23e1d5b5' opacity='.5'/%3E%3Crect x='14' y='36' width='36' height='1.5' rx='.75' fill='%23e1d5b5' opacity='.3'/%3E%3Crect x='14' y='41' width='20' height='1.5' rx='.75' fill='%23e1d5b5' opacity='.3'/%3E%3Crect x='32' y='46' width='18' height='6' rx='3' fill='%23e1d5b5'/%3E%3Ctext x='41' y='51' font-family='Arial' font-size='5' font-weight='700' fill='%231d6c5c' text-anchor='middle'%3ERp%3C/text%3E%3C/svg%3E">
-<meta name="description" content="Kala Invoice — Business Document Management">
-<meta name="theme-color" content="#1d6c5c">
+<title>LATIFOTO — Business Documents</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -383,8 +379,7 @@
 <!-- SIDEBAR -->
 <nav id="sidebar">
   <div id="sidebar-logo" onclick="navigate('dashboard');closeSidebar()">
-    <svg width="20" height="20" viewBox="0 0 64 64" style="vertical-align:middle;margin-right:6px;border-radius:6px"><rect width="64" height="64" rx="14" fill="#e1d5b5"/><rect x="14" y="12" width="24" height="3" rx="1.5" fill="#1d6c5c"/><rect x="14" y="19" width="36" height="3" rx="1.5" fill="#1d6c5c" opacity=".7"/><rect x="14" y="26" width="30" height="3" rx="1.5" fill="#1d6c5c" opacity=".5"/><rect x="32" y="46" width="18" height="6" rx="3" fill="#1d6c5c"/></svg>
-    Kala Invoice
+    LATIFOTO
     <small>Business Documents</small>
   </div>
 
@@ -1629,6 +1624,7 @@ function importFromCSVFile(target) {
         }
       });
       DB.set('lf_clients', clients);
+      Cloud.push('sync_clients', clients);
     }
 
     if (itemCsv) {
@@ -1639,11 +1635,13 @@ function importFromCSVFile(target) {
         const price = parseFloat((row[2]||'0').replace(/[^0-9.]/g,'')) || 0;
         const exists = itemsDB.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (!exists) {
-          itemsDB.push({ id: uid(), name, category:(row[1]||'Lainnya').trim(), price, desc:(row[3]||'').trim(), unit:(row[4]||'Paket').trim(), createdAt: now() });
+          const cat = (row[1]||'Lainnya').trim();
+          itemsDB.push({ id: uid(), name, category: cat, categories: [cat], price, desc:(row[3]||'').trim(), unit:(row[4]||'Paket').trim(), createdAt: now() });
           itemsImported++;
         }
       });
       DB.set('lf_items', itemsDB);
+      Cloud.push('sync_items', itemsDB);
     }
 
     prog.classList.remove('show');
@@ -1654,6 +1652,9 @@ function importFromCSVFile(target) {
     const msg = [clientsImported && `${clientsImported} klien`, itemsImported && `${itemsImported} item`].filter(Boolean).join(' & ');
     showToast(msg ? `✅ Import berhasil: ${msg}` : '⚠️ Tidak ada data baru (mungkin sudah ada / file kosong)', msg ? 'success' : 'error');
     updateBadges();
+    // Refresh views jika sedang terbuka
+    if (document.getElementById('page-clients').classList.contains('active')) renderClients();
+    if (document.getElementById('page-items').classList.contains('active')) { renderItems(); renderCategoryTabs(); }
   }).catch(err => {
     prog.classList.remove('show');
     showToast('❌ Error: ' + err.message, 'error');
@@ -2329,169 +2330,298 @@ function updateItemMarginPreview() {
 function updatePreview() {
   const type = document.getElementById('doc-type-select').value;
   const brandName = settings.brandName || 'LATIFOTO';
-  const brandSub = settings.brandSub || '';
+  const brandSub  = settings.brandSub  || '';
   const brandModeActive = settings.brandMode || 'both';
-  const docNum = document.getElementById('doc-number').value || '-';
-  const docDate = fmtDate(document.getElementById('doc-date').value);
-  const dueDate = fmtDate(document.getElementById('doc-due-date').value);
-  const clientName = document.getElementById('client-name').value || '-';
-  const clientCompany = document.getElementById('client-company').value;
-  const clientPhone = document.getElementById('client-phone').value;
-  const clientEmail = document.getElementById('client-email').value;
-  const clientAddress = document.getElementById('client-address').value;
-  const notes = document.getElementById('doc-notes').value;
-  const closing = document.getElementById('doc-closing').value;
-  const senderName = document.getElementById('sender-name').value;
-  const senderAddress = document.getElementById('sender-address').value;
+  const docNum    = document.getElementById('doc-number').value || '-';
+  const docDate   = fmtDate(document.getElementById('doc-date').value);
+  const dueDate   = fmtDate(document.getElementById('doc-due-date').value);
+  const perihal   = document.getElementById('doc-notes').value.split('\n')[0] || '';
+  const clientName    = document.getElementById('client-name').value    || '-';
+  const clientCompany = document.getElementById('client-company').value || '';
+  const clientPhone   = document.getElementById('client-phone').value   || '';
+  const clientEmail   = document.getElementById('client-email').value   || '';
+  const clientAddress = document.getElementById('client-address').value || '';
+  const notes         = document.getElementById('doc-notes').value;
+  const closing       = document.getElementById('doc-closing').value;
+  const senderName    = document.getElementById('sender-name').value;
   const senderPosition = document.getElementById('sender-position') ? document.getElementById('sender-position').value : '';
-  const bankName = document.getElementById('bank-name').value;
-  const bankNo = document.getElementById('bank-number').value;
+  const senderAddress = document.getElementById('sender-address').value;
+  const bankName  = document.getElementById('bank-name').value;
+  const bankNo    = document.getElementById('bank-number').value;
   const bankHolder = document.getElementById('bank-holder').value;
-  const paymentNote = document.getElementById('payment-note').value;
-  const paymentDate = fmtDate(document.getElementById('payment-date').value);
+  const paymentNote   = document.getElementById('payment-note').value;
+  const paymentDate   = fmtDate(document.getElementById('payment-date').value);
   const paymentMethod = document.getElementById('payment-method').value;
 
-  const items = getItemRows();
-  const disc      = parseFloat(document.getElementById('discount-input').value) || 0;
-  const taxType   = document.getElementById('tax-type').value;
-  const taxRate   = taxType !== 'none' ? (parseFloat(document.getElementById('tax-rate-input').value) || 0) : 0;
+  const items    = getItemRows();
+  const disc     = parseFloat(document.getElementById('discount-input').value) || 0;
+  const taxType  = document.getElementById('tax-type').value;
+  const taxRate  = taxType !== 'none' ? (parseFloat(document.getElementById('tax-rate-input').value) || 0) : 0;
   const taxBearer = taxType !== 'none' ? document.getElementById('tax-bearer').value : 'client';
-  const sub       = items.reduce((a,i)=>a+i.total,0);
-  const discAmt   = sub * disc / 100;
+  const sub      = items.reduce((a,i)=>a+i.total,0);
+  const discAmt  = sub * disc / 100;
   const afterDisc = sub - discAmt;
-  const taxAmt    = afterDisc * taxRate / 100;
-  const total     = taxType !== 'none' && taxBearer === 'client' ? afterDisc + taxAmt : afterDisc;
-  const netAmt    = taxType !== 'none' && taxBearer === 'us' ? afterDisc - taxAmt : total;
+  const taxAmt   = afterDisc * taxRate / 100;
+  const total    = taxType !== 'none' && taxBearer === 'client' ? afterDisc + taxAmt : afterDisc;
+  const netAmt   = taxType !== 'none' && taxBearer === 'us' ? afterDisc - taxAmt : total;
   const taxLabels = { ppn:'PPN', pph23:'PPh 23', pph21:'PPh 21', custom:'Pajak' };
   const taxLabel  = taxLabels[taxType] || 'Pajak';
 
-  const typeLabels = { quotation: 'QUOTATION', proposal: 'SURAT PENAWARAN', invoice: 'INVOICE', receipt: 'BUKTI PEMBAYARAN' };
+  const typeLabels = { quotation:'QUOTATION', proposal:'SURAT PENAWARAN', invoice:'INVOICE', receipt:'BUKTI PEMBAYARAN' };
+  const typeLabel  = typeLabels[type] || type.toUpperCase();
 
-  // Build brand header
-  let brandHtml = '';
+  // ── SENDER BLOCK (kanan atas) ──
+  let senderBlock = '';
   if (brandModeActive === 'both' || brandModeActive === 'logo') {
-    if (logoDataUrl) brandHtml += `<img src="${logoDataUrl}" class="print-logo-img">`;
+    if (logoDataUrl) senderBlock += `<img src="${logoDataUrl}" style="max-height:56px;max-width:180px;object-fit:contain;display:block;margin-bottom:8px">`;
   }
   if (brandModeActive === 'both' || brandModeActive === 'name') {
-    brandHtml += `<div class="print-brand-name">${brandName}</div>`;
-    if (brandSub) brandHtml += `<div class="print-brand-sub">${brandSub}</div>`;
+    senderBlock += `<div style="font-size:11pt;font-weight:700;color:#1a1a1a">${brandName}</div>`;
+    if (brandSub) senderBlock += `<div style="font-size:8pt;color:#888;letter-spacing:1px">${brandSub}</div>`;
   }
-  if (senderAddress) brandHtml += `<div style="font-size:8pt;color:#888;margin-top:4px">${senderAddress}</div>`;
+  if (senderAddress) senderBlock += `<div style="font-size:8.5pt;color:#666;margin-top:4px;line-height:1.5">${senderAddress}</div>`;
+  if (senderName)    senderBlock += `<div style="font-size:8.5pt;color:#666">${senderName}${senderPosition ? ' · ' + senderPosition : ''}</div>`;
 
-  // Items table
+  // ── ITEMS TABLE ──
   const itemsHtml = items.filter(i=>i.name).map((item,n) => `
     <tr>
-      <td style="color:var(--mid);font-size:9pt;width:30px">${n+1}</td>
-      <td>
-        <div style="font-weight:600">${item.name}</div>
-        ${item.desc ? `<div class="item-desc">${item.desc.replace(/\n/g,'<br>')}</div>` : ''}
+      <td style="font-size:9.5pt;vertical-align:top;padding:9px 8px">
+        <div style="font-weight:500;color:#1a1a1a">${item.name}</div>
+        ${item.desc ? `<div style="font-size:8pt;color:#999;margin-top:2px;line-height:1.4">${item.desc.replace(/\n/g,'<br>')}</div>` : ''}
       </td>
-      <td class="qty-col" style="text-align:center">${item.qty}</td>
-      <td class="price-col">${fmtRp(item.price)}</td>
-      <td>${fmtRp(item.total)}</td>
-    </tr>`).join('') || `<tr><td colspan="5" style="color:#ccc;text-align:center;padding:20px">Belum ada item</td></tr>`;
+      <td style="text-align:center;font-size:9.5pt;color:#555;padding:9px 8px;vertical-align:top">${item.qty}</td>
+      <td style="text-align:right;font-size:9.5pt;color:#555;padding:9px 8px;vertical-align:top">${fmtRp(item.price)}</td>
+      <td style="text-align:right;font-size:9.5pt;font-weight:500;padding:9px 8px;vertical-align:top">${fmtRp(item.total)}</td>
+    </tr>`).join('') || `<tr><td colspan="4" style="color:#ccc;text-align:center;padding:24px;font-size:9pt">Belum ada item</td></tr>`;
 
+  // ── PAYMENT INFO ──
   const showBank = (type === 'invoice' || type === 'receipt') && bankNo;
   const showPaymentInfo = type === 'receipt';
 
-  let paymentBlock = '';
+  let paymentInfoBlock = '';
   if (showPaymentInfo) {
-    paymentBlock = `
-      <div class="print-payment-proof-banner">
-        <div class="title">PEMBAYARAN DITERIMA</div>
-        <div class="sub">Terima kasih atas kepercayaan Anda</div>
-      </div>
-      <div class="print-payment-block" style="margin-bottom:6mm">
+    paymentInfoBlock = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:8mm;padding-top:6mm;border-top:1px solid #e0e0e0">
         <div>
-          <div class="print-bank-label">Metode Pembayaran</div>
-          <div class="print-bank-name">${paymentMethod}</div>
-          <div class="print-bank-holder">Tanggal: ${paymentDate || '-'}</div>
-          ${paymentNote ? `<div style="font-size:8.5pt;color:#555;margin-top:4px">${paymentNote}</div>` : ''}
+          <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px">Pembayaran Diterima</div>
+          <div style="font-size:11pt;font-weight:700;color:#1a1a1a">${paymentMethod}</div>
+          <div style="font-size:8.5pt;color:#666;margin-top:2px">Tanggal: ${paymentDate || '-'}</div>
+          ${paymentNote ? `<div style="font-size:8.5pt;color:#666;margin-top:2px">${paymentNote}</div>` : ''}
         </div>
         <div style="text-align:right">
-          <div style="font-size:8pt;color:var(--mid);margin-bottom:4px;text-transform:uppercase;letter-spacing:1px">Total Diterima</div>
-          <div class="proof-amount-big">${fmtRp(total)}</div>
+          <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px">Jumlah Diterima</div>
+          <div style="font-size:18pt;font-weight:800;color:#1a1a1a">${fmtRp(total)}</div>
         </div>
+      </div>`;
+  } else if (showBank) {
+    paymentInfoBlock = `
+      <div style="margin-top:6mm;padding:10px 14px;border:1px solid #e0e0e0;border-radius:4px">
+        <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">Informasi Pembayaran</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <div><span style="font-size:8pt;color:#999">Bank</span><br><span style="font-size:10pt;font-weight:600">${bankName}</span></div>
+          <div><span style="font-size:8pt;color:#999">No. Rekening</span><br><span style="font-size:11pt;font-weight:700;letter-spacing:1px;font-family:monospace">${bankNo}</span></div>
+          <div><span style="font-size:8pt;color:#999">Atas Nama</span><br><span style="font-size:10pt;font-weight:600">${bankHolder}</span></div>
+        </div>
+        <div style="font-size:7.5pt;color:#aaa;margin-top:8px;font-style:italic">Mohon cantumkan nomor dokumen sebagai berita transfer.</div>
       </div>`;
   }
 
-  let bankBlock = '';
-  if (showBank && !showPaymentInfo) {
-    bankBlock = `
-      <div class="print-payment-block">
-        <div class="print-bank-box">
-          <div class="print-bank-label">Transfer ke</div>
-          <div class="print-bank-name">${bankName}</div>
-          <div class="print-bank-no">${bankNo}</div>
-          <div class="print-bank-holder">a.n. ${bankHolder}</div>
-        </div>
-        <div></div>
-      </div>`;
-  }
+  // ── OPENING TEXT per type ──
+  const openingText = {
+    quotation: `Terima kasih telah mempercayakan kebutuhan visual Anda kepada <strong>${brandName}</strong>. Berikut adalah penawaran harga yang kami siapkan khusus berdasarkan kebutuhan yang telah Anda sampaikan.`,
+    proposal:  `Terima kasih telah mempercayakan kebutuhan visual Anda kepada <strong>${brandName}</strong>. Berikut adalah penawaran harga yang kami siapkan berdasarkan kebutuhan yang telah Anda sampaikan.`,
+    invoice:   `Terima kasih telah memilih <strong>${brandName}</strong> sebagai mitra visual Anda. Berikut adalah tagihan resmi atas layanan yang telah/sedang berjalan sesuai kesepakatan.`,
+    receipt:   `Terima kasih atas kepercayaan Anda kepada <strong>${brandName}</strong>. Berikut adalah bukti penerimaan pembayaran atas layanan yang telah disepakati.`,
+  };
 
-  const html = `
-    <div class="print-header">
-      <div class="print-brand">${brandHtml}</div>
-      <div class="print-doc-info">
-        <div class="print-doc-type">${typeLabels[type]}</div>
-        <div class="print-doc-number">No: ${docNum}</div>
-        <div class="print-doc-date">Tanggal: ${docDate || '-'}</div>
-        ${dueDate ? `<div class="print-doc-date">${type==='invoice'?'Jatuh Tempo':'Berlaku s/d'}: ${dueDate}</div>` : ''}
+  // ── PAGE 1 HTML ──
+  const page1 = `
+<div class="p1" style="font-family:'Inter',sans-serif;font-size:10pt;color:#1a1a1a;padding:16mm 18mm 12mm;min-height:277mm;position:relative;background:#fff">
+
+  <!-- JUDUL BESAR KIRI + SENDER KANAN -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10mm">
+    <div>
+      <div style="font-size:34pt;font-weight:800;color:#1a1a1a;line-height:1;letter-spacing:-1px">${typeLabel}</div>
+      <div style="font-size:8.5pt;color:#999;margin-top:6px">no. ${docNum} &nbsp;·&nbsp; ${docDate || '-'}</div>
+    </div>
+    <div style="text-align:right">${senderBlock}</div>
+  </div>
+
+  <!-- DIVIDER -->
+  <div style="border-top:1px solid #e0e0e0;margin-bottom:8mm"></div>
+
+  <!-- CLIENT + DOC META (2 kolom) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:8mm">
+    <div>
+      <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px">Kepada</div>
+      <div style="font-size:11pt;font-weight:700">${clientName}</div>
+      ${clientCompany ? `<div style="font-size:9.5pt;color:#555;margin-top:2px">${clientCompany}</div>` : ''}
+      <div style="font-size:8.5pt;color:#888;margin-top:4px;line-height:1.6">${[clientPhone,clientEmail,clientAddress].filter(Boolean).join('<br>')}</div>
+    </div>
+    <div style="text-align:right">
+      ${dueDate ? `<div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:4px">${type==='invoice'?'Jatuh Tempo':'Berlaku Hingga'}</div><div style="font-size:9.5pt;font-weight:600">${dueDate}</div>` : ''}
+      ${perihal ? `<div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-top:8px;margin-bottom:4px">Perihal</div><div style="font-size:9.5pt">${perihal}</div>` : ''}
+    </div>
+  </div>
+
+  <!-- OPENING TEXT -->
+  <div style="font-size:9pt;color:#666;line-height:1.6;margin-bottom:6mm">${openingText[type]||''}</div>
+
+  <!-- ITEMS TABLE -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:0">
+    <thead>
+      <tr style="border-bottom:1.5px solid #1a1a1a">
+        <th style="text-align:left;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px 8px">Deskripsi Layanan</th>
+        <th style="text-align:center;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:40px">Qty</th>
+        <th style="text-align:right;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:120px">Harga Satuan</th>
+        <th style="text-align:right;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:120px">Total</th>
+      </tr>
+    </thead>
+    <tbody style="border-bottom:1px solid #e0e0e0">${itemsHtml}</tbody>
+  </table>
+
+  <!-- TOTALS -->
+  <div style="display:flex;justify-content:flex-end;margin-top:4mm;margin-bottom:6mm">
+    <div style="width:55%;min-width:220px">
+      ${disc>0?`<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#888"><span>Subtotal</span><span>${fmtRp(sub)}</span></div><div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#c62828"><span>Diskon (${disc}%)</span><span>- ${fmtRp(discAmt)}</span></div>`:`<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#888"><span>Subtotal</span><span>${fmtRp(sub)}</span></div>`}
+      ${taxType !== 'none' && taxRate > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#555"><span>${taxLabel} ${taxRate}% ${taxBearer==='client'?'(klien)':'(dipotong)'}</span><span>${taxBearer==='client'?'+ ':'- '}${fmtRp(taxAmt)}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;padding:10px 8px;margin-top:4px;border-top:1.5px solid #1a1a1a">
+        <span style="font-size:11pt;font-weight:700">Total ${type==='invoice'?'Tagihan':type==='receipt'?'Diterima':'Penawaran'}</span>
+        <span style="font-size:14pt;font-weight:800">${fmtRp(total)}</span>
+      </div>
+      ${taxType !== 'none' && taxBearer === 'us' ? `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:8.5pt;color:#888"><span>Diterima bersih</span><span>${fmtRp(netAmt)}</span></div>` : ''}
+    </div>
+  </div>
+
+  ${paymentInfoBlock}
+
+  <!-- NOTES -->
+  ${notes ? `<div style="margin-top:6mm;padding:10px 14px;border-left:2px solid #1a1a1a;background:#fafafa"><div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:5px">Catatan</div><div style="font-size:9pt;color:#555;line-height:1.6">${notes.replace(/\n/g,'<br>')}</div></div>` : ''}
+
+  <!-- TTD -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10mm;padding-top:6mm;border-top:1px solid #e0e0e0">
+    <div>
+      <div style="font-size:8.5pt;color:#999;margin-bottom:32px">${type==='invoice'||type==='receipt'?'Diterima oleh Klien,':'Disetujui oleh Klien,'}</div>
+      <div style="border-top:1px solid #ccc;padding-top:4px;min-width:140px">
+        <div style="font-size:8pt;color:#aaa">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
+        <div style="font-size:8pt;color:#888;margin-top:2px">Nama &amp; Jabatan</div>
       </div>
     </div>
-    <div class="print-client-block">
-      <div>
-        <div class="print-address-label">Kepada Yth.</div>
-        <div class="print-address-name">${clientName}</div>
-        ${clientCompany ? `<div style="font-size:10pt;font-weight:600;color:var(--gold)">${clientCompany}</div>` : ''}
-        <div class="print-address-detail">${[clientPhone,clientEmail,clientAddress].filter(Boolean).join('<br>')}</div>
-      </div>
-      <div></div>
-    </div>
-    ${paymentBlock}
-    <table class="print-items-table">
-      <thead>
-        <tr>
-          <th style="width:25px">#</th>
-          <th>Nama Item / Layanan</th>
-          <th style="text-align:center;width:40px">Qty</th>
-          <th style="width:130px">Harga Satuan</th>
-          <th style="text-align:right;width:130px">Total</th>
-        </tr>
-      </thead>
-      <tbody>${itemsHtml}</tbody>
-    </table>
-    <div class="print-totals-wrap">
-      <div class="print-totals">
-        <div class="print-totals-row"><span>Subtotal</span><span>${fmtRp(sub)}</span></div>
-        ${disc>0?`<div class="print-totals-row" style="color:var(--danger)"><span>Diskon (${disc}%)</span><span>- ${fmtRp(discAmt)}</span></div>`:''}
-        ${taxType !== 'none' && taxRate > 0 ? `
-              <div class="print-totals-row">
-                <span>${taxLabel} ${taxRate}% ${taxBearer === 'client' ? '(ditanggung klien)' : '(dipotong dari tagihan)'}</span>
-                <span>${taxBearer === 'client' ? '+ ' : '- '}${fmtRp(taxAmt)}</span>
-              </div>
-              ${taxBearer === 'us' ? `<div class="print-totals-row" style="font-size:9pt;color:#888"><span>Diterima bersih</span><span>${fmtRp(netAmt)}</span></div>` : ''}
-            ` : ''}
-        <div class="print-totals-row grand"><span>TOTAL</span><span>${fmtRp(total)}</span></div>
-      </div>
-    </div>
-    ${bankBlock}
-    ${notes ? `<div class="print-notes"><div class="print-notes-label">Catatan</div><p>${notes.replace(/\n/g,'<br>')}</p></div>` : ''}
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:8mm;padding-top:6mm;border-top:1px solid #eee">
-      <div>
-        <div style="font-size:9pt;color:#888;margin-bottom:4px">${closing}</div>
-        <div style="font-size:10pt;font-weight:700;color:var(--dark)">${clientName !== '-' ? clientName : ''}</div>
-        ${clientCompany ? `<div style="font-size:9pt;color:#888">${clientCompany}</div>` : ''}
-      </div>
-      <div class="print-stamp-box">
-        <div style="margin-bottom:36px;font-size:8pt;color:#ccc">TTD</div>
+    <div style="text-align:right">
+      <div style="font-size:8.5pt;color:#999;margin-bottom:32px">${closing}</div>
+      <div style="border-top:1px solid #ccc;padding-top:4px;min-width:140px;text-align:right">
         <div style="font-weight:700;font-size:10pt">${senderName || brandName}</div>
-        <div style="font-size:8pt;color:#888">${senderPosition || ''}</div>
+        <div style="font-size:8pt;color:#888">${senderPosition || brandName}</div>
       </div>
     </div>
-  `;
+  </div>
 
-  document.getElementById('print-doc').innerHTML = html;
+  <!-- FOOTER -->
+  <div style="position:absolute;bottom:10mm;left:18mm;right:18mm;display:flex;justify-content:space-between;border-top:1px solid #f0f0f0;padding-top:6px">
+    <div style="font-size:7pt;color:#bbb">${brandName} ${brandSub ? '· ' + brandSub : ''}</div>
+    <div style="font-size:7pt;color:#bbb">Halaman 1 / 2</div>
+  </div>
+</div>`;
+
+  // ── PAGE 2 — SYARAT & KETENTUAN ──
+  const isInvoice = type === 'invoice' || type === 'receipt';
+
+  const stkInvoice = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">1. Batas Waktu Pembayaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Pembayaran mohon diselesaikan paling lambat 3 (tiga) hari kerja sejak invoice ini diterbitkan. Keterlambatan pembayaran dapat berdampak pada jadwal penyerahan file.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">2. Penyerahan File</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">File hasil editing akan diproses dan diserahkan dalam 3–7 hari kerja setelah pembayaran diterima dan terkonfirmasi, dalam format yang telah disepakati.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">3. Keterlambatan Pembayaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Apabila pembayaran belum diterima melewati batas waktu yang ditentukan, ${brandName} berhak menunda penyerahan file hingga pembayaran terselesaikan.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">4. Keabsahan Invoice</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Invoice ini merupakan dokumen resmi dari ${brandName}. Harap simpan sebagai bukti transaksi Anda.</div>
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;border:1px solid #e0e0e0;border-radius:4px;background:#fafafa">
+      <div style="font-size:8.5pt;color:#888;font-style:italic">⚠ Pembayaran belum diterima = file belum dapat diserahkan. Hubungi kami segera jika ada kendala agar dapat kami bantu carikan solusi terbaik.</div>
+    </div>`;
+
+  const stkQuotation = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">1. Masa Berlaku Penawaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Harga dalam quotation ini berlaku selama 3 (tiga) hari kalender sejak tanggal pengiriman. Setelah melewati batas waktu tersebut, harga dapat berubah sewaktu-waktu tanpa pemberitahuan terlebih dahulu.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">2. Konfirmasi &amp; Pemesanan</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Pemesanan dianggap sah setelah klien menyampaikan konfirmasi tertulis (via WhatsApp, email, atau media komunikasi lainnya) dan melakukan pembayaran uang muka (Down Payment).</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">3. Pembayaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">
+        <b>Uang Muka (DP):</b> 30% dari total nilai proyek, dibayarkan paling lambat 3 (tiga) hari kerja setelah konfirmasi untuk mengamankan tanggal pelaksanaan.<br>
+        <b>Pelunasan:</b> 70% sisa pembayaran dilunasi sebelum file hasil editing diserahkan.<br>
+        Pembayaran dilakukan melalui transfer bank ke rekening resmi ${brandName} yang tercantum di invoice.
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">4. Penyerahan File</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">File hasil editing akan diserahkan dalam 3–7 hari kerja terhitung sejak pelunasan diterima dan terkonfirmasi, dalam format yang telah disepakati bersama.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">5. Pembatalan oleh Klien</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">
+        <b>Pembatalan H-7 atau lebih:</b> DP dikembalikan 50% dari jumlah yang telah dibayarkan.<br>
+        <b>Pembatalan kurang dari H-7:</b> DP tidak dapat dikembalikan, karena slot waktu dan persiapan telah dialokasikan penuh.
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">6. Revisi</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Revisi editing mencakup jumlah revisi sesuai brief awal yang telah disepakati. Revisi di luar ketentuan tersebut akan dikenakan biaya tambahan yang akan dikomunikasikan terlebih dahulu.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">7. Hak Penggunaan Karya</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">${brandName} berhak menggunakan hasil dokumentasi sebagai portofolio dan materi promosi, kecuali klien secara tertulis menyatakan keberatan sebelum proyek dimulai.</div>
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;border:1px solid #e0e0e0;border-radius:4px;background:#fafafa">
+      <div style="font-size:8.5pt;color:#888;font-style:italic">⚠ Penawaran ini hanya berlaku 3 hari sejak tanggal pengiriman. Segera konfirmasi untuk mengamankan tanggal dan harga terbaik Anda.</div>
+    </div>`;
+
+  const page2 = `
+<div class="p2" style="font-family:'Inter',sans-serif;font-size:10pt;color:#1a1a1a;padding:16mm 18mm 12mm;min-height:277mm;position:relative;background:#fff;page-break-before:always">
+
+  <!-- HEADER HALAMAN 2 -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8mm;padding-bottom:6mm;border-bottom:1px solid #e0e0e0">
+    <div>
+      <div style="font-size:14pt;font-weight:800;color:#1a1a1a">Syarat &amp; Ketentuan</div>
+      <div style="font-size:8.5pt;color:#999;margin-top:3px">${typeLabel} · no. ${docNum}</div>
+    </div>
+    <div style="text-align:right">
+      ${logoDataUrl && (brandModeActive==='both'||brandModeActive==='logo') ? `<img src="${logoDataUrl}" style="max-height:36px;max-width:120px;object-fit:contain;display:block;margin-bottom:4px;margin-left:auto">` : ''}
+      <div style="font-size:9pt;font-weight:600;color:#555">${brandName}</div>
+    </div>
+  </div>
+
+  <!-- S&K CONTENT -->
+  ${isInvoice ? stkInvoice : stkQuotation}
+
+  <!-- PENUTUP -->
+  <div style="margin-top:10mm;padding-top:6mm;border-top:1px solid #e0e0e0">
+    <div style="font-size:9pt;color:#888;line-height:1.7;font-style:italic">
+      ${isInvoice
+        ? `Kami sangat mengapresiasi kepercayaan Anda. Apabila ada pertanyaan terkait invoice ini, tim kami siap membantu kapan saja. Terima kasih telah menjadi bagian dari perjalanan ${brandName}.`
+        : `Kami berharap penawaran ini sesuai dengan yang Anda harapkan. Jika ada pertanyaan atau hal yang ingin didiskusikan, jangan ragu untuk menghubungi kami — kami senang membantu. Bersama ${brandName}, setiap momen Anda layak diabadikan dengan sepenuh hati.`}
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="position:absolute;bottom:10mm;left:18mm;right:18mm;display:flex;justify-content:space-between;border-top:1px solid #f0f0f0;padding-top:6px">
+    <div style="font-size:7pt;color:#bbb">${brandName} ${brandSub ? '· ' + brandSub : ''}</div>
+    <div style="font-size:7pt;color:#bbb">Halaman 2 / 2</div>
+  </div>
+</div>`;
+
+  document.getElementById('print-doc').innerHTML = page1 + page2;
 }
 
 function printDoc() {
@@ -2500,52 +2630,19 @@ function printDoc() {
   const w = window.open('', '_blank');
   w.document.write(`<!DOCTYPE html><html><head>
     <meta charset="UTF-8"><title>Dokumen</title>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
       *{box-sizing:border-box;margin:0;padding:0}
-      :root{--gold:#C9A84C;--dark:#1a1a1a;--mid:#666;--border:#e0e0e0;--danger:#c0392b}
-      body{font-family:'Inter',sans-serif;font-size:11pt;color:#1a1a1a;padding:16mm 18mm;min-height:297mm;position:relative}
-      .print-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10mm;padding-bottom:6mm;border-bottom:2px solid var(--gold)}
-      .print-brand{display:flex;flex-direction:column}
-      .print-logo-img{max-height:50px;max-width:160px;object-fit:contain;margin-bottom:6px}
-      .print-brand-name{font-family:'Playfair Display',serif;font-size:22pt;font-weight:700;color:var(--dark);line-height:1}
-      .print-brand-sub{font-size:8pt;letter-spacing:2px;text-transform:uppercase;color:#888;margin-top:3px}
-      .print-doc-info{text-align:right}
-      .print-doc-type{font-family:'Playfair Display',serif;font-size:18pt;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:2px}
-      .print-doc-number{font-size:10pt;color:var(--mid);margin-top:4px}
-      .print-doc-date{font-size:9pt;color:var(--mid)}
-      .print-client-block{display:grid;grid-template-columns:1fr 1fr;gap:10mm;margin-bottom:8mm}
-      .print-address-label{font-size:8pt;letter-spacing:1px;text-transform:uppercase;color:var(--mid);margin-bottom:4px;font-weight:600}
-      .print-address-name{font-size:12pt;font-weight:700;margin-bottom:3px}
-      .print-address-detail{font-size:9pt;color:#555;line-height:1.5}
-      .print-items-table{width:100%;border-collapse:collapse;margin-bottom:8mm}
-      .print-items-table th{background:var(--dark);color:white;font-size:8pt;padding:8px 10px;text-align:left;letter-spacing:.5px;text-transform:uppercase}
-      .print-items-table th:last-child{text-align:right}
-      .print-items-table td{padding:8px 10px;font-size:10pt;border-bottom:1px solid #f0f0f0;vertical-align:top}
-      .print-items-table td:last-child{text-align:right;font-weight:600}
-      .item-desc{font-size:8pt;color:#777;margin-top:3px;line-height:1.4}
-      .print-items-table tr:nth-child(even) td{background:#fafafa}
-      .print-totals-wrap{display:flex;justify-content:flex-end;margin-bottom:8mm}
-      .print-totals{width:60%}
-      .print-totals-row{display:flex;justify-content:space-between;padding:5px 10px;font-size:10pt}
-      .print-totals-row.grand{background:var(--dark);color:white;font-weight:700;font-size:12pt;border-radius:4px;margin-top:4px}
-      .print-notes{background:#fafafa;border-left:3px solid var(--gold);padding:10px 14px;border-radius:0 6px 6px 0;margin-bottom:8mm}
-      .print-notes-label{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;color:var(--mid)}
-      .print-notes p{font-size:9.5pt;line-height:1.6;color:#555}
-      .print-payment-block{display:grid;grid-template-columns:1fr 1fr;gap:10mm;margin-bottom:8mm}
-      .print-bank-box{border:1px solid var(--border);border-radius:6px;padding:10px 14px}
-      .print-bank-label{font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--mid);margin-bottom:6px}
-      .print-bank-name{font-size:11pt;font-weight:700}
-      .print-bank-no{font-size:13pt;font-weight:700;color:var(--gold);letter-spacing:1px;font-family:monospace}
-      .print-bank-holder{font-size:9pt;color:var(--mid)}
-      .print-stamp-box{border:1px solid var(--border);border-radius:6px;padding:8px 16px;text-align:center;font-size:8pt;color:var(--mid);min-width:120px}
-      .print-footer{margin-top:10mm;border-top:1px solid var(--border);padding-top:8px;display:flex;justify-content:space-between}
-      .print-footer-text{font-size:7.5pt;color:#aaa}
-      .print-payment-proof-banner{background:var(--dark);color:white;text-align:center;padding:14px;margin-bottom:8mm;border-radius:6px}
-      .print-payment-proof-banner .title{font-family:'Playfair Display',serif;font-size:16pt;font-weight:700;color:var(--gold)}
-      .print-payment-proof-banner .sub{font-size:9pt;color:#ccc;margin-top:4px}
-      .proof-amount-big{font-size:28px;font-weight:700;color:var(--gold);font-family:'Playfair Display',serif}
-      @media print{@page{size:A4;margin:0}body{padding:10mm 14mm}}
+      body{font-family:'Inter',sans-serif;background:#fff}
+      .p1,.p2{padding:16mm 18mm 14mm;min-height:277mm;position:relative;background:#fff}
+      .p2{page-break-before:always}
+      img{max-width:100%;display:block}
+      table{border-collapse:collapse;width:100%}
+      @media print{
+        @page{size:A4;margin:0}
+        .p1,.p2{padding:14mm 16mm 12mm;min-height:277mm}
+        .p2{page-break-before:always}
+      }
     </style>
   </head><body>${printContent}</body></html>`);
   w.document.close();

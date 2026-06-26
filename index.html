@@ -1285,9 +1285,18 @@ const Cloud = {
       if (json.documents?.length)  { documents = json.documents;  DB.set('lf_docs',     documents); }
       if (json.clients?.length)    { clients   = json.clients;    DB.set('lf_clients',  clients); }
       if (json.items?.length)      { itemsDB   = json.items;      DB.set('lf_items',    itemsDB); }
-      if (json.settings?.length)   {
-        const s = json.settings[0];
-        if (s) { settings = {...settings, ...s}; DB.set('lf_settings', settings); }
+      // BUG FIX: server bisa mengirim settings sebagai array[0] atau langsung object.
+      // Sebelumnya hanya memeriksa .length, jadi format object langsung diabaikan.
+      const rawSettings = json.settings;
+      if (rawSettings) {
+        const pulled = Array.isArray(rawSettings) ? rawSettings[0] : rawSettings;
+        if (pulled && typeof pulled === 'object') {
+          // BUG FIX: merge dengan settings lokal — jangan timpa penuh.
+          // Prioritaskan data dari cloud, tapi jangan hapus key lokal yang
+          // tidak ada di cloud (misalnya brandMode yang baru ditambah).
+          settings = { ...settings, ...pulled };
+          DB.set('lf_settings', settings);
+        }
       }
       if (settings.categories) {
         DB.set('lf_categories', settings.categories);
@@ -3364,10 +3373,14 @@ function loadSettings() {
   const s = settings;
   ['brand-name','brand-sub','owner-name','owner-position','email','phone','address','social','bank-name','bank-no','bank-holder',
    'prefix-qt','prefix-sp','prefix-inv','prefix-bp','note-qt','note-inv','tnc',
-   'counter-qt','counter-sp','counter-inv','counter-bp','gsheet-clients','gsheet-items','sync-url'].forEach(k => {
+   'counter-qt','counter-sp','counter-inv','counter-bp','sync-url'].forEach(k => {
     const el = document.getElementById('s-'+k);
+    if (!el || el.type === 'hidden') return;
     const sKey = k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase());
-    if (el && s[sKey] !== undefined) el.value = s[sKey];
+    // BUG FIX: gunakan != null (bukan !== undefined) agar nilai '' (string kosong)
+    // yang memang disengaja tetap dimuat. Sebelumnya key yang belum pernah disimpan
+    // tidak diisi field-nya, tapi saveSetting() langsung menimpanya dengan ''.
+    if (s[sKey] != null) el.value = s[sKey];
   });
   // Restore logo preview
   if (logoDataUrl) {
@@ -3386,10 +3399,19 @@ function loadSettings() {
 function saveSetting() {
   ['brand-name','brand-sub','owner-name','owner-position','email','phone','address','social','bank-name','bank-no','bank-holder',
    'prefix-qt','prefix-sp','prefix-inv','prefix-bp','note-qt','note-inv','tnc',
-   'counter-qt','counter-sp','counter-inv','counter-bp','gsheet-clients','gsheet-items','sync-url'].forEach(k => {
+   'counter-qt','counter-sp','counter-inv','counter-bp','sync-url'].forEach(k => {
+    // BUG FIX: skip hidden inputs (s-gsheet-clients, s-gsheet-items) — nilainya
+    // selalu kosong karena type=hidden, tapi tetap menimpa settings yang ada.
     const el = document.getElementById('s-'+k);
+    if (!el || el.type === 'hidden') return;
     const sKey = k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase());
-    if (el) settings[sKey] = el.value;
+    // BUG FIX: jangan timpa nilai yang sudah ada dengan string kosong.
+    // Hanya update jika user benar-benar mengisi sesuatu, atau jika
+    // memang sebelumnya kosong (nilai kosong yang disengaja).
+    const newVal = el.value;
+    if (newVal !== '' || settings[sKey] === undefined) {
+      settings[sKey] = newVal;
+    }
   });
   DB.set('lf_settings', settings);
   Cloud.push('sync_settings', settings);

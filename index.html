@@ -1028,6 +1028,12 @@
           <h3 style="margin:0">☁️ Sinkronisasi Multi-Device</h3>
           <span id="sync-status" style="font-size:12px;font-weight:600;color:#9e9e9e">○  Sync nonaktif</span>
         </div>
+
+        <!-- BOOTSTRAP BANNER: tampil jika localStorage kosong -->
+        <div id="bootstrap-banner" style="display:none;background:#fff3cd;border:1.5px solid #ffc107;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:13px;color:#856404">
+          <strong>⚠️ Data di web masih kosong.</strong> Paste URL Apps Script kamu di bawah lalu klik <b>"⬇️ Ambil Data dari Cloud"</b> untuk menarik semua data (settings, dokumen, klien, item) ke device ini.
+        </div>
+
         <div class="gsheet-info" style="background:#e8f5e9;border-color:#a5d6a7;color:#1b5e20;margin-bottom:16px">
           <strong>Cara setup (5 menit):</strong><br>
           1. Download file <b>Kala Project_apps_script.gs</b> dari link setup<br>
@@ -1038,12 +1044,13 @@
         </div>
         <div class="form-group">
           <label>URL Google Apps Script (Web App URL)</label>
-          <input type="url" id="s-sync-url" placeholder="https://script.google.com/macros/s/AKfyc.../exec" oninput="saveSetting()" style="font-size:12px">
+          <input type="url" id="s-sync-url" placeholder="https://script.google.com/macros/s/AKfyc.../exec" oninput="onSyncUrlInput(this.value)" style="font-size:12px">
+          <div style="font-size:11px;color:var(--mid);margin-top:4px" id="sync-url-hint"></div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
           <button class="btn btn-primary" onclick="Cloud.ping()">🔌 Test Koneksi</button>
           <button class="btn btn-gold" onclick="Cloud.pushAll()">⬆️ Upload Semua Data ke Cloud</button>
-          <button class="btn btn-ghost" onclick="initCloudSync(true)">⬇️ Ambil Data dari Cloud</button>
+          <button class="btn btn-ghost" onclick="bootstrapFromCloud()">⬇️ Ambil Data dari Cloud</button>
         </div>
         <div style="font-size:11px;color:var(--mid);margin-top:10px">💡 Setelah setup, setiap simpan/hapus otomatis tersinkron ke semua device.</div>
       </div>
@@ -3382,6 +3389,14 @@ function loadSettings() {
     // tidak diisi field-nya, tapi saveSetting() langsung menimpanya dengan ''.
     if (s[sKey] != null) el.value = s[sKey];
   });
+
+  // Tampilkan bootstrap banner jika data masih kosong
+  const banner = document.getElementById('bootstrap-banner');
+  if (banner) {
+    const isEmpty = !s.brandName && !s.ownerName && documents.length === 0 && clients.length === 0;
+    banner.style.display = isEmpty ? 'block' : 'none';
+  }
+
   // Restore logo preview
   if (logoDataUrl) {
     const prev = document.getElementById('s-logo-preview');
@@ -3395,6 +3410,53 @@ function loadSettings() {
   const activeToggle = document.getElementById('brand-toggle-' + mode);
   if (activeToggle) activeToggle.classList.add('active');
   updateSettingsBrandPreview();
+}
+
+// Dipanggil setiap kali user mengetik/paste URL sync.
+// Langsung simpan syncUrl ke localStorage tanpa menunggu saveSetting() penuh —
+// supaya Cloud.enabled() langsung true dan tombol pull bisa dipakai.
+function onSyncUrlInput(val) {
+  const url = val.trim();
+  settings.syncUrl = url;
+  DB.set('lf_settings', settings);
+
+  const hint = document.getElementById('sync-url-hint');
+  if (!url) {
+    Cloud.setStatus('off');
+    if (hint) hint.textContent = '';
+    return;
+  }
+  if (!url.includes('script.google.com')) {
+    if (hint) { hint.textContent = '⚠️ URL terlihat tidak valid. Pastikan berasal dari Google Apps Script.'; hint.style.color = '#c0392b'; }
+    return;
+  }
+  if (hint) { hint.textContent = '✅ URL tersimpan. Klik "Ambil Data dari Cloud" untuk menarik data.'; hint.style.color = '#27ae60'; }
+  Cloud.setStatus('idle');
+}
+
+// Tarik semua data dari cloud — versi eksplisit dengan feedback & reload settings UI.
+async function bootstrapFromCloud() {
+  const url = (document.getElementById('s-sync-url') || {}).value || settings.syncUrl || '';
+  if (!url) {
+    showToast('⚠️ Isi URL Apps Script dulu!', 'error');
+    return;
+  }
+  // Pastikan syncUrl sudah tersimpan sebelum pull
+  settings.syncUrl = url.trim();
+  DB.set('lf_settings', settings);
+
+  showToast('⏳ Mengambil data dari cloud...', 'success');
+  const pulled = await Cloud.pull();
+  if (pulled) {
+    updateBadges();
+    renderDashboard();
+    loadSettings(); // reload UI settings dengan data baru dari cloud
+    showToast('✅ Data berhasil diambil! Settings, dokumen, klien sudah diperbarui.', 'success');
+    const banner = document.getElementById('bootstrap-banner');
+    if (banner) banner.style.display = 'none';
+  } else {
+    showToast('❌ Gagal ambil data. Cek URL dan koneksi internet.', 'error');
+  }
 }
 function saveSetting() {
   ['brand-name','brand-sub','owner-name','owner-position','email','phone','address','social','bank-name','bank-no','bank-holder',

@@ -927,28 +927,17 @@
         <button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="if(confirm('Reset semua data? Ini tidak bisa dibatalkan!'))clearAllData()">🗑️ Reset Semua Data</button>
       </div>
       <div class="settings-card" style="grid-column:1/-1">
-        <h3>📊 Import dari Google Sheets</h3>
-        <div class="gsheet-info">
-          <strong>Cara menggunakan:</strong>
-          1. Buka Google Sheet kamu → klik <b>File → Share → Publish to web</b><br>
-          2. Pilih sheet yang berisi data, format <b>CSV</b>, lalu klik Publish<br>
-          3. Salin URL yang muncul, paste di bawah<br>
-          4. <b>Format kolom Klien:</b> Nama | Perusahaan | Telepon | Email | Alamat<br>
-          5. <b>Format kolom Item:</b> Nama Item | Kategori | Harga | Keterangan | Satuan
+        <h3>📊 Import dari Google Sheets (via Apps Script)</h3>
+        <div class="gsheet-info" style="background:#fff8e1;border-color:#ffe082;color:#5d4037">
+          <strong>ℹ️ Import langsung dari Google Sheet yang terhubung via Apps Script.</strong><br>
+          Pastikan kamu sudah mengisi dan men-test <b>URL Apps Script</b> di bagian <b>☁️ Sinkronisasi Multi-Device</b> di bawah.<br>
+          Import ini akan mengambil data klien &amp; item dari sheet — tidak butuh URL publish CSV terpisah.
         </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label>URL Sheet Klien (CSV Published)</label>
-            <input type="text" id="s-gsheet-clients" oninput="saveSetting()" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-          </div>
-          <div class="form-group">
-            <label>URL Sheet Item / Harga (CSV Published)</label>
-            <input type="text" id="s-gsheet-items" oninput="saveSetting()" placeholder="https://docs.google.com/spreadsheets/d/.../pub?output=csv">
-          </div>
-        </div>
+        <input type="hidden" id="s-gsheet-clients">
+        <input type="hidden" id="s-gsheet-items">
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="importFromGSheets('clients')">⬇️ Import Klien</button>
-          <button class="btn btn-primary" onclick="importFromGSheets('items')">⬇️ Import Item & Harga</button>
+          <button class="btn btn-primary" onclick="importFromGSheets('clients')">⬇️ Import Klien dari Sheet</button>
+          <button class="btn btn-primary" onclick="importFromGSheets('items')">⬇️ Import Item &amp; Harga dari Sheet</button>
           <button class="btn btn-ghost btn-sm" onclick="importFromGSheets('both')">Import Keduanya</button>
         </div>
         <div class="import-progress" id="import-progress">⏳ Mengambil data...</div>
@@ -1184,15 +1173,51 @@ const Cloud = {
     Cloud._queue[type] = setTimeout(() => Cloud._doPush(type, data), 800);
   },
 
+  // Helper: kirim ke Apps Script — otomatis chunk jika data array besar
+  // Apps Script hanya support GET (CORS), jadi payload harus muat di URL
+  // Limit aman: ~6000 karakter URL total
+  async _send(action, payload) {
+    const baseUrl = Cloud.url();
+
+    // Jika payload bukan array atau kecil, kirim langsung
+    const json = JSON.stringify(payload);
+    const b64  = btoa(unescape(encodeURIComponent(json)));
+
+    if (b64.length <= 5000) {
+      const url = `${baseUrl}?action=${action}&payload=${encodeURIComponent(b64)}`;
+      const res = await fetch(url, { redirect: 'follow' });
+      return res.json();
+    }
+
+    // Payload terlalu besar → kirim dalam chunks (hanya untuk array)
+    if (!Array.isArray(payload)) {
+      // Bukan array (misal settings object) — kirim apa adanya, semoga muat
+      const url = `${baseUrl}?action=${action}&payload=${encodeURIComponent(b64)}`;
+      const res = await fetch(url, { redirect: 'follow' });
+      return res.json();
+    }
+
+    // Pecah array menjadi chunk kecil dan kirim satu per satu
+    // Apps Script akan overwrite sheet di chunk pertama (mode=overwrite),
+    // lalu append di chunk berikutnya (mode=append)
+    const CHUNK = 20; // item per request
+    for (let i = 0; i < payload.length; i += CHUNK) {
+      const chunk = payload.slice(i, i + CHUNK);
+      const mode  = i === 0 ? 'overwrite' : 'append';
+      const chunkJson = JSON.stringify(chunk);
+      const chunkB64  = btoa(unescape(encodeURIComponent(chunkJson)));
+      const url = `${baseUrl}?action=${action}&payload=${encodeURIComponent(chunkB64)}&mode=${mode}`;
+      const res = await fetch(url, { redirect: 'follow' });
+      const result = await res.json();
+      if (!result.ok) throw new Error(result.error || `Chunk ${i} gagal`);
+    }
+    return { ok: true };
+  },
+
   async _doPush(type, data) {
     try {
       Cloud.setStatus('syncing');
-      // Encode payload sebagai base64 — hindari CORS issue dengan POST
-      const json    = JSON.stringify(data);
-      const b64     = btoa(unescape(encodeURIComponent(json)));
-      const url     = `${Cloud.url()}?action=${type}&payload=${encodeURIComponent(b64)}`;
-      const res     = await fetch(url);
-      const result  = await res.json();
+      const result = await Cloud._send(type, data);
       if (result.ok) { Cloud.setStatus('ok'); setTimeout(() => Cloud.setStatus('idle'), 3000); }
       else { Cloud.setStatus('error'); console.error('Sync error:', result.error); }
     } catch (err) {
@@ -1217,7 +1242,6 @@ const Cloud = {
         const s = json.settings[0];
         if (s) { settings = {...settings, ...s}; DB.set('lf_settings', settings); }
       }
-      // Restore categories dari settings jika ada
       if (settings.categories) {
         DB.set('lf_categories', settings.categories);
       }
@@ -1231,21 +1255,29 @@ const Cloud = {
     }
   },
 
-  // Push semua data ke cloud sekaligus (untuk migrasi / full sync)
+  // Push semua data ke cloud sekaligus — kirim per-koleksi agar URL tidak terlalu panjang
   async pushAll() {
     if (!Cloud.enabled()) return;
+    Cloud.setStatus('syncing');
     try {
-      Cloud.setStatus('syncing');
-      const payload = { documents, clients, items: itemsDB, settings };
-      const b64     = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-      const url     = `${Cloud.url()}?action=sync_all&payload=${encodeURIComponent(b64)}`;
-      const res     = await fetch(url);
-      const json    = await res.json();
-      if (json.ok) { Cloud.setStatus('ok'); setTimeout(() => Cloud.setStatus('idle'), 3000); showToast('✅ Semua data berhasil disinkronkan!', 'success'); }
-      else { Cloud.setStatus('error'); showToast('❌ Sync gagal: ' + json.error, 'error'); }
+      // Kirim tiap koleksi satu per satu supaya payload lebih kecil
+      const steps = [
+        { action: 'sync_docs',     data: documents },
+        { action: 'sync_clients',  data: clients   },
+        { action: 'sync_items',    data: itemsDB   },
+        { action: 'sync_settings', data: settings  },
+      ];
+      for (const step of steps) {
+        const result = await Cloud._send(step.action, step.data);
+        if (!result.ok) throw new Error(result.error || step.action + ' gagal');
+      }
+      Cloud.setStatus('ok');
+      setTimeout(() => Cloud.setStatus('idle'), 3000);
+      showToast('✅ Semua data berhasil disinkronkan!', 'success');
     } catch (err) {
       Cloud.setStatus('error');
-      showToast('❌ Tidak bisa terhubung ke server sync', 'error');
+      showToast('❌ Sync gagal: ' + err.message, 'error');
+      console.error('pushAll error:', err);
     }
   },
 
@@ -1514,62 +1546,92 @@ function closeSidebar() {
 }
 
 // ── GOOGLE SHEETS IMPORT ──
+// Menggunakan Apps Script URL (sync-url) langsung — tidak butuh proxy eksternal
 async function importFromGSheets(target) {
   const prog = document.getElementById('import-progress');
   prog.classList.add('show');
-  prog.textContent = '⏳ Mengambil data...';
+  prog.textContent = '⏳ Mengambil data dari Google Sheet...';
 
-  const clientUrl = document.getElementById('s-gsheet-clients').value.trim();
-  const itemUrl = document.getElementById('s-gsheet-items').value.trim();
+  // Pakai Apps Script URL yang sudah diisi di pengaturan sinkronisasi
+  const syncUrl = (settings.syncUrl || document.getElementById('s-sync-url').value || '').trim();
 
-  const proxyBase = 'https://corsproxy.io/?';
-  let clientsImported = 0, itemsImported = 0, errors = [];
+  if (!syncUrl) {
+    prog.classList.remove('show');
+    showToast('⚠️ URL Sync Apps Script belum diisi di Pengaturan → Sinkronisasi!', 'error');
+    return;
+  }
 
-  if ((target === 'clients' || target === 'both') && clientUrl) {
-    try {
-      const resp = await fetch(proxyBase + encodeURIComponent(clientUrl));
-      const csv = await resp.text();
-      const rows = parseCSV(csv);
-      rows.forEach(row => {
-        const name = (row[0]||'').trim();
+  let clientsImported = 0, itemsImported = 0;
+
+  try {
+    // Ambil semua data sekaligus dari Apps Script (action=all)
+    const res = await fetch(syncUrl + '?action=all');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+
+    // ── Import Klien ──
+    if ((target === 'clients' || target === 'both') && json.clients?.length) {
+      json.clients.forEach(row => {
+        const name = (row.name || '').trim();
         if (!name) return;
         const exists = clients.find(c => c.name.toLowerCase() === name.toLowerCase());
         if (!exists) {
-          clients.push({ id: uid(), name, company:(row[1]||'').trim(), phone:(row[2]||'').trim(), email:(row[3]||'').trim(), address:(row[4]||'').trim(), createdAt: now() });
+          clients.push({
+            id: row.id || uid(),
+            name,
+            company:  (row.company  || '').trim(),
+            phone:    (row.phone    || '').trim(),
+            email:    (row.email    || '').trim(),
+            address:  (row.address  || '').trim(),
+            createdAt: row.createdAt || now(),
+          });
           clientsImported++;
         }
       });
       DB.set('lf_clients', clients);
-    } catch(e) { errors.push('Klien: ' + e.message); }
-  }
+    }
 
-  if ((target === 'items' || target === 'both') && itemUrl) {
-    try {
-      const resp = await fetch(proxyBase + encodeURIComponent(itemUrl));
-      const csv = await resp.text();
-      const rows = parseCSV(csv);
-      rows.forEach(row => {
-        const name = (row[0]||'').trim();
+    // ── Import Item ──
+    if ((target === 'items' || target === 'both') && json.items?.length) {
+      json.items.forEach(row => {
+        const name = (row.name || '').trim();
         if (!name) return;
-        const price = parseFloat((row[2]||'0').replace(/[^0-9.]/g,'')) || 0;
         const exists = itemsDB.find(i => i.name.toLowerCase() === name.toLowerCase());
         if (!exists) {
-          itemsDB.push({ id: uid(), name, category:(row[1]||'Lainnya').trim(), price, desc:(row[3]||'').trim(), unit:(row[4]||'Paket').trim(), createdAt: now() });
+          const cat = (row.category || row.categories?.[0] || 'Lainnya').trim();
+          itemsDB.push({
+            id:         row.id || uid(),
+            name,
+            category:   cat,
+            categories: Array.isArray(row.categories) ? row.categories : [cat],
+            price:      parseFloat(row.price) || 0,
+            cost:       parseFloat(row.cost)  || 0,
+            desc:       (row.desc  || '').trim(),
+            unit:       (row.unit  || 'Paket').trim(),
+            createdAt:  row.createdAt || now(),
+          });
           itemsImported++;
         }
       });
       DB.set('lf_items', itemsDB);
-    } catch(e) { errors.push('Item: ' + e.message); }
-  }
+    }
 
-  prog.classList.remove('show');
-  if (errors.length) {
-    showToast('⚠️ Error: ' + errors.join(', '), 'error');
-  } else {
+    prog.classList.remove('show');
     const msg = [clientsImported && `${clientsImported} klien`, itemsImported && `${itemsImported} item`].filter(Boolean).join(' & ');
-    showToast(msg ? `✅ Import berhasil: ${msg}` : '⚠️ Tidak ada data baru ditemukan', msg ? 'success' : 'error');
+    showToast(
+      msg ? `✅ Import berhasil: ${msg}` : '⚠️ Tidak ada data baru (mungkin sudah sinkron)',
+      msg ? 'success' : 'error'
+    );
+    updateBadges();
+    if (document.getElementById('page-clients').classList.contains('active')) renderClients();
+    if (document.getElementById('page-items').classList.contains('active'))   { renderItems(); renderCategoryTabs(); }
+
+  } catch(err) {
+    prog.classList.remove('show');
+    showToast('❌ Gagal mengambil data: ' + err.message, 'error');
+    console.error('importFromGSheets error:', err);
   }
-  updateBadges();
 }
 
 function parseCSV(csv) {

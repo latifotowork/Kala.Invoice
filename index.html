@@ -6,6 +6,7 @@
 <title>Kala Project — Business Documents</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -258,6 +259,13 @@
   .confirmed-check-row input[type=checkbox] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); }
   .confirmed-check-row .txt { font-size: 12px; color: var(--dark); }
   .confirmed-check-row .txt small { display: block; color: var(--mid); font-size: 10.5px; margin-top: 2px; }
+
+  /* ── SEND WA MODAL ── */
+  .wa-file-preview { display: flex; align-items: center; gap: 10px; background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #166534; margin-bottom: 14px; }
+  .wa-file-preview .icon { font-size: 20px; }
+  .wa-loading-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid #ccc; border-top-color: var(--gold); border-radius: 50%; animation: wa-spin .7s linear infinite; }
+  @keyframes wa-spin { to { transform: rotate(360deg); } }
+  .wa-hint { font-size: 10.5px; color: var(--mid); margin-top: 6px; line-height: 1.5; }
 
   /* ── MODALS ── */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 500; align-items: center; justify-content: center; }
@@ -734,6 +742,11 @@
       <div class="stat-card" onclick="setJobFilter('done')" id="jcard-done" style="cursor:pointer">
         <div class="label">Selesai</div>
         <div class="value" id="jstat-done" style="color:var(--success)">0</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="label">💹 Profit Bulan Ini</div>
+        <div class="value" id="jstat-profit" style="font-size:18px">Rp 0</div>
+        <div class="sub" id="jstat-profit-sub">dari job selesai & bertaut invoice</div>
       </div>
     </div>
 
@@ -1339,6 +1352,30 @@
     </div>
   </div>
 </div>
+
+<!-- Send via WhatsApp Modal -->
+<div class="modal-overlay" id="modal-send-wa">
+  <div class="modal" style="max-width:440px">
+    <button class="modal-close" onclick="closeModal('modal-send-wa')">✕</button>
+    <h2>📤 Kirim Dokumen ke Klien</h2>
+    <div id="wa-status-area">
+      <div class="wa-file-preview">
+        <span class="wa-loading-spinner"></span>
+        <span>Menyiapkan file PDF...</span>
+      </div>
+    </div>
+    <div class="form-group"><label>Nomor WhatsApp Klien</label><input type="tel" id="wa-phone" placeholder="628123456789"></div>
+    <div class="form-group"><label>Pesan</label><textarea id="wa-message" rows="5"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" id="wa-send-btn" onclick="confirmSendWa()" disabled>📤 Kirim via WhatsApp</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-send-wa')">Nanti Saja</button>
+    </div>
+    <div class="wa-hint" id="wa-hint-text"></div>
+  </div>
+</div>
+
+<!-- Hidden render target for PDF generation -->
+<div id="pdf-render-target" style="position:fixed;left:-9999px;top:0;width:210mm;background:#fff"></div>
 
 <!-- Toast -->
 <div id="toast"></div>
@@ -3004,6 +3041,9 @@ function saveDocument() {
   }
 
   showToast('✅ Dokumen berhasil disimpan!', 'success');
+
+  // ── KIRIM KE WA ──
+  openSendWaModal(docData);
 }
 
 function onDocConfirmedChange() { /* efek baru terjadi saat dokumen disimpan */ }
@@ -3705,6 +3745,19 @@ function showToast(msg, type='success') {
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function now() { return new Date().toISOString(); }
 function today() { return new Date().toISOString().split('T')[0]; }
+
+// Hitung profit/margin job dari item invoice yang tertaut (butuh HPP/cost terisi di item)
+function calcJobMargin(job) {
+  if (!job.linkedDocId) return null;
+  const doc = documents.find(d => d.id === job.linkedDocId);
+  if (!doc || !doc.items || !doc.items.length) return null;
+  const revenue = doc.items.reduce((a,i) => a + (i.total || 0), 0);
+  const cost = doc.items.reduce((a,i) => a + ((i.cost || 0) * (i.qty || 1)), 0);
+  if (revenue <= 0) return null;
+  const profit = revenue - cost;
+  const marginPct = Math.round((profit / revenue) * 100);
+  return { revenue, cost, profit, marginPct };
+}
 function fmtRp(n) { return 'Rp ' + (Math.round(n)||0).toLocaleString('id-ID'); }
 function fmtDate(d) { if (!d) return ''; try { return new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}); } catch { return d; } }
 function esc(s) { return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -3970,7 +4023,9 @@ function renderJobs() {
 
   let totalCount = 0, ongoingCount = 0, urgentCount = 0, doneCount = 0;
   let onTimeDone = 0, lateDone = 0;
+  let monthlyProfit = 0, monthlyProfitJobCount = 0;
   const todayD = new Date(); todayD.setHours(0,0,0,0);
+  const curMonth = todayD.getMonth(), curYear = todayD.getFullYear();
 
   ['all','ongoing','urgent','done'].forEach(f => {
     const card = document.getElementById(`jcard-${f}`);
@@ -3991,6 +4046,15 @@ function renderJobs() {
 
     if (isDone) { doneCount++; if (job.isLateOnCompletion) lateDone++; else onTimeDone++; }
     else { ongoingCount++; totalCount++; if (isUrgent) urgentCount++; }
+
+    // Akumulasi profit dari job yang selesai bulan ini & punya data margin
+    if (isDone && job.completedDate) {
+      const cd = new Date(job.completedDate);
+      if (cd.getMonth() === curMonth && cd.getFullYear() === curYear) {
+        const margin = calcJobMargin(job);
+        if (margin) { monthlyProfit += margin.profit; monthlyProfitJobCount++; }
+      }
+    }
 
     if (currentJobFilter === 'all' && isDone) return;
     if (currentJobFilter === 'ongoing' && isDone) return;
@@ -4013,6 +4077,10 @@ function renderJobs() {
       ? `<span class="job-link-pill" onclick="openDocFromJob('${job.linkedDocId}')">🔗 ${job.linkedDocType==='invoice'?'INV':'QT'} #${job.linkedDocNumber}</span>`
       : (job.source === 'auto' ? `<span class="job-link-pill" style="background:#f0f0f0;color:#999">⚠️ Sumber terhapus</span>` : '');
     const notesHTML = job.notes ? `<div class="job-notes-box">💬 ${job.notes}</div>` : '';
+    const margin = calcJobMargin(job);
+    const marginHTML = margin
+      ? `<div style="font-size:11px;font-weight:700;color:#166534;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;padding:4px 8px;margin-bottom:8px;display:inline-block">💹 Profit: ${fmtRp(margin.profit)} (${margin.marginPct}%)</div>`
+      : '';
 
     const card = document.createElement('div');
     card.className = 'job-card';
@@ -4028,6 +4096,7 @@ function renderJobs() {
       <div class="job-title">${job.title}</div>
       ${job.clientName ? `<div class="job-client">👤 Klien: <b>${job.clientName}</b></div>` : ''}
       ${notesHTML}
+      ${marginHTML}
       <div class="job-progress-bar"><div class="job-progress-fill ${isDone?'done':''}" style="width:${progressPercent}%"></div></div>
       <div style="font-size:11px;color:var(--mid);margin-bottom:6px">${progressPercent}% selesai</div>
       <div>
@@ -4063,6 +4132,131 @@ function renderJobs() {
   document.getElementById('jperf-late').textContent = lateDone;
   const totalDone = onTimeDone + lateDone;
   document.getElementById('jperf-rate').textContent = (totalDone > 0 ? Math.round((onTimeDone/totalDone)*100) : 0) + '%';
+
+  document.getElementById('jstat-profit').textContent = fmtRp(monthlyProfit);
+  document.getElementById('jstat-profit-sub').textContent = monthlyProfitJobCount > 0
+    ? `dari ${monthlyProfitJobCount} job selesai bulan ini`
+    : 'belum ada job selesai dgn data HPP bulan ini';
+}
+
+// ══════════════════════════════════════════
+// ── KIRIM DOKUMEN VIA WHATSAPP ──
+// ══════════════════════════════════════════
+
+let waPendingBlob = null;
+let waPendingFilename = null;
+
+function sanitizeFilename(str) {
+  return (str || '').replace(/[\/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
+}
+
+function normalizePhone(phone) {
+  let digits = (phone || '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0')) digits = '62' + digits.slice(1);
+  else if (!digits.startsWith('62')) digits = '62' + digits;
+  return digits;
+}
+
+function waMessageTemplate(doc) {
+  const brandName = settings.brandName || 'Kala Project';
+  const typeLabel = { quotation:'Quotation', proposal:'Surat Penawaran', invoice:'Invoice', receipt:'Bukti Pembayaran' }[doc.type] || 'Dokumen';
+  const total = fmtRp(doc.total || 0);
+  let base = `Halo ${doc.clientName || ''} 👋\n\nBerikut kami kirimkan *${typeLabel}* dari ${brandName}.\n\n📄 No. Dokumen: ${doc.number}\n💰 Total: ${total}`;
+  if (doc.type === 'invoice') {
+    base += doc.status === 'paid' ? `\n✅ Status: Lunas` : `\n⏳ Status: Menunggu pembayaran`;
+  }
+  base += `\n\nMohon dicek ya, terima kasih banyak atas kepercayaannya 🙏`;
+  return base;
+}
+
+// Bangun ulang #print-doc dari state form yang sedang aktif, lalu render ke PDF blob
+async function generateDocPdfBlob() {
+  updatePreview();
+  const target = document.getElementById('pdf-render-target');
+  target.innerHTML = document.getElementById('print-doc').innerHTML;
+
+  const opt = {
+    margin: 0,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css'], before: '.p2' }
+  };
+  const blob = await html2pdf().set(opt).from(target).outputPdf('blob');
+  target.innerHTML = '';
+  return blob;
+}
+
+async function openSendWaModal(doc) {
+  document.getElementById('wa-phone').value = normalizePhone(doc.clientPhone);
+  document.getElementById('wa-message').value = waMessageTemplate(doc);
+  document.getElementById('wa-send-btn').disabled = true;
+  document.getElementById('wa-status-area').innerHTML = `
+    <div class="wa-file-preview"><span class="wa-loading-spinner"></span><span>Menyiapkan file PDF...</span></div>`;
+  document.getElementById('wa-hint-text').textContent = '';
+  openModal('modal-send-wa');
+
+  const typeLabel = { quotation:'Quotation', proposal:'SP', invoice:'Invoice', receipt:'BP' }[doc.type] || 'Doc';
+  waPendingFilename = sanitizeFilename(`${doc.number || typeLabel} - ${doc.clientName || 'Klien'}`) + '.pdf';
+
+  try {
+    waPendingBlob = await generateDocPdfBlob();
+    document.getElementById('wa-status-area').innerHTML = `
+      <div class="wa-file-preview"><span class="icon">📄</span><span>${waPendingFilename} siap dikirim</span></div>`;
+    document.getElementById('wa-send-btn').disabled = false;
+
+    // Deteksi kemampuan share file langsung (biasanya HP/Android Chrome, sebagian iOS Safari)
+    const testFile = new File([waPendingBlob], waPendingFilename, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [testFile] })) {
+      document.getElementById('wa-hint-text').textContent = '📱 File PDF akan otomatis ikut terlampir lewat menu share HP kamu.';
+    } else {
+      document.getElementById('wa-hint-text').textContent = '💻 PDF akan otomatis terdownload, lalu WhatsApp terbuka dengan pesan siap kirim — tinggal attach file yang barusan kedownload.';
+    }
+  } catch (err) {
+    console.error('Gagal generate PDF:', err);
+    document.getElementById('wa-status-area').innerHTML = `
+      <div class="wa-file-preview" style="background:#FEF2F2;border-color:#FECACA;color:#991B1B">⚠️ Gagal membuat PDF otomatis. Kamu tetap bisa kirim pesan tanpa lampiran, lalu cetak manual lewat tombol Preview.</div>`;
+    document.getElementById('wa-send-btn').disabled = false;
+    waPendingBlob = null;
+  }
+}
+
+async function confirmSendWa() {
+  const phone = document.getElementById('wa-phone').value.trim();
+  const message = document.getElementById('wa-message').value;
+  if (!phone) { showToast('⚠️ Nomor WhatsApp klien wajib diisi!', 'error'); return; }
+
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+  if (waPendingBlob) {
+    const file = new File([waPendingBlob], waPendingFilename, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: message, title: waPendingFilename });
+        closeModal('modal-send-wa');
+        showToast('✅ Dibagikan lewat menu share!', 'success');
+        return;
+      } catch (err) {
+        // Kalau user cancel share, jangan lanjut buka wa.me otomatis
+        if (err.name === 'AbortError') return;
+        console.error('Share gagal:', err);
+      }
+    }
+    // Fallback desktop: download dulu lalu buka WA
+    const dlUrl = URL.createObjectURL(waPendingBlob);
+    const a = document.createElement('a');
+    a.href = dlUrl;
+    a.download = waPendingFilename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
+    showToast('📥 PDF terdownload — attach manual ke chat WA yang baru terbuka', 'success');
+  }
+
+  window.open(waUrl, '_blank');
+  closeModal('modal-send-wa');
 }
 
 // ── CLOSE AUTOCOMPLETE ON CLICK OUTSIDE ──

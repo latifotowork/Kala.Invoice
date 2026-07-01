@@ -223,6 +223,42 @@
   .print-payment-proof-banner .title { font-family: 'Playfair Display', serif; font-size: 16pt; font-weight: 700; color: var(--gold); }
   .print-payment-proof-banner .sub { font-size: 9pt; color: #ccc; margin-top: 4px; }
 
+  /* ── JOB TRACKER ── */
+  .job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .job-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px; position: relative; overflow: hidden; transition: box-shadow .15s; }
+  .job-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+  .job-card .stripe { position: absolute; top:0; left:0; bottom:0; width:4px; }
+  .job-card .stripe.ongoing { background: var(--gold); }
+  .job-card .stripe.urgent { background: var(--danger); }
+  .job-card .stripe.done { background: var(--success); }
+  .job-card .stripe.late { background: #e67e22; }
+  .job-cat-pill { font-size: 10px; font-weight: 700; letter-spacing: .5px; color: var(--gold); background: #FFF7E6; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--gold-light); }
+  .job-link-pill { font-size: 10px; font-weight: 600; color: #0369A1; background: #E0F2FE; padding: 2px 8px; border-radius: 4px; cursor: pointer; }
+  .job-link-pill:hover { text-decoration: underline; }
+  .job-title { font-size: 14px; font-weight: 700; margin-top: 6px; line-height: 1.4; }
+  .job-client { font-size: 11px; color: var(--mid); margin-top: 2px; }
+  .job-progress-bar { width: 100%; height: 6px; background: #eee; border-radius: 4px; overflow: hidden; margin: 10px 0 4px; }
+  .job-progress-fill { height: 100%; background: var(--gold); transition: width .3s; }
+  .job-progress-fill.done { background: var(--success); }
+  .job-subtask-row { display: flex; align-items: flex-start; gap: 6px; font-size: 12px; color: var(--mid); padding: 3px 0; }
+  .job-subtask-row input[type=checkbox] { margin-top: 2px; }
+  .job-subtask-row.done span { text-decoration: line-through; color: #bbb; }
+  .job-deadline-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; white-space: nowrap; }
+  .job-deadline-badge.ongoing { background: #FFF3CD; color: #856404; }
+  .job-deadline-badge.urgent { background: #FEE2E2; color: #991B1B; }
+  .job-deadline-badge.done { background: #D1FAE5; color: #065F46; }
+  .job-deadline-badge.late { background: #FFE4CC; color: #9A3412; }
+  .job-notes-box { background: #fafafa; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 11.5px; color: var(--mid); font-style: italic; margin: 8px 0; }
+  .job-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: #999; }
+  .job-footer .actions button { background: none; border: none; color: #bbb; cursor: pointer; font-size: 13px; padding: 3px 5px; }
+  .job-footer .actions button:hover { color: var(--dark); }
+  .job-subtask-input-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+  .job-subtask-input-row input[type=text] { flex: 1; }
+  .confirmed-check-row { display: flex; align-items: flex-start; gap: 10px; background: #FFF7E6; border: 1px solid var(--gold-light); border-radius: 8px; padding: 10px 12px; margin-top: 10px; }
+  .confirmed-check-row input[type=checkbox] { margin-top: 3px; width: 16px; height: 16px; accent-color: var(--gold); }
+  .confirmed-check-row .txt { font-size: 12px; color: var(--dark); }
+  .confirmed-check-row .txt small { display: block; color: var(--mid); font-size: 10.5px; margin-top: 2px; }
+
   /* ── MODALS ── */
   .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 500; align-items: center; justify-content: center; }
   .modal-overlay.open { display: flex; }
@@ -471,6 +507,10 @@
       <span class="icon">📄</span> Semua Dokumen
       <span class="badge" id="doc-count-badge">0</span>
     </button>
+    <button class="nav-btn" id="nav-jobs" onclick="navigate('jobs');closeSidebar()">
+      <span class="icon">🗂️</span> Job Tracker
+      <span class="badge" id="job-count-badge" style="background:#fee2e2;color:#991b1b">0</span>
+    </button>
   </div>
 
   <div class="nav-section">
@@ -675,6 +715,46 @@
     </div>
   </div>
 
+  <!-- JOB TRACKER -->
+  <div class="page" id="page-jobs">
+
+    <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:14px">
+      <div class="stat-card" onclick="setJobFilter('all')" id="jcard-all" style="cursor:pointer">
+        <div class="label">Semua Job</div>
+        <div class="value" id="jstat-all">0</div>
+      </div>
+      <div class="stat-card" onclick="setJobFilter('ongoing')" id="jcard-ongoing" style="cursor:pointer">
+        <div class="label">Sedang Berjalan</div>
+        <div class="value" id="jstat-ongoing" style="color:#c98a12">0</div>
+      </div>
+      <div class="stat-card" onclick="setJobFilter('urgent')" id="jcard-urgent" style="cursor:pointer">
+        <div class="label">Mendekati Deadline</div>
+        <div class="value" id="jstat-urgent" style="color:var(--danger)">0</div>
+      </div>
+      <div class="stat-card" onclick="setJobFilter('done')" id="jcard-done" style="cursor:pointer">
+        <div class="label">Selesai</div>
+        <div class="value" id="jstat-done" style="color:var(--success)">0</div>
+      </div>
+    </div>
+
+    <div class="settings-card" style="padding:14px 16px;margin-bottom:14px;display:flex;flex-wrap:wrap;gap:16px;align-items:center;justify-content:space-between">
+      <div style="font-size:12px;color:var(--mid)">
+        📈 Ketepatan waktu: <b id="jperf-ontime" style="color:var(--success)">0</b> tepat waktu ·
+        <b id="jperf-late" style="color:var(--danger)">0</b> terlambat ·
+        rasio sukses <b id="jperf-rate">0%</b>
+      </div>
+    </div>
+
+    <div class="tab-bar" id="job-category-tabs"></div>
+
+    <div class="flex-between" style="margin-bottom:14px">
+      <input class="search-bar" id="job-search-bar" placeholder="🔍 Cari job, klien, atau catatan..." oninput="renderJobs()">
+      <button class="btn btn-primary" onclick="openJobModal()">+ Tambah Job Manual</button>
+    </div>
+
+    <div class="job-grid" id="jobs-list"></div>
+  </div>
+
   <!-- DOCUMENT EDITOR -->
   <div class="page" id="page-editor" style="padding:0;background:var(--light)">
     <div id="doc-editor-wrap">
@@ -715,6 +795,13 @@
               <option value="paid">Lunas</option>
               <option value="unpaid">Belum Bayar</option>
             </select>
+          </div>
+          <div class="confirmed-check-row" id="confirmed-wrap">
+            <input type="checkbox" id="doc-confirmed" onchange="onDocConfirmedChange()">
+            <div class="txt">
+              ✅ Sudah di-ACC / dikonfirmasi klien
+              <small>Kalau dicentang & disimpan, pekerjaan ini otomatis muncul di Job Tracker.</small>
+            </div>
           </div>
         </div>
 
@@ -1219,6 +1306,40 @@
   </div>
 </div>
 
+<!-- Job Tracker Modal -->
+<div class="modal-overlay" id="modal-job">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closeModal('modal-job')">✕</button>
+    <h2 id="job-modal-title">Tambah Job Baru</h2>
+    <input type="hidden" id="j-id">
+    <div class="form-group"><label>Nama Job / Pekerjaan *</label><input type="text" id="j-title" placeholder="Cth: Dokumentasi Wedding Rani & Dimas"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Nama Klien</label><input type="text" id="j-client"></div>
+      <div class="form-group"><label>Deadline *</label><input type="date" id="j-deadline"></div>
+    </div>
+    <div class="form-group">
+      <label>Kategori</label>
+      <div style="display:flex;gap:6px">
+        <select id="j-category" style="flex:1"></select>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addNewJobCategoryPrompt()">+</button>
+      </div>
+    </div>
+    <div class="form-group"><label>Catatan</label><textarea id="j-notes" rows="2" placeholder="Lokasi, brief, link asset, dll..."></textarea></div>
+    <div class="form-group">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <label style="margin:0">Checklist Progres</label>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addJobSubtaskRow()">+ Tambah Baris</button>
+      </div>
+      <div id="job-subtask-inputs" style="max-height:160px;overflow-y:auto"></div>
+    </div>
+    <div id="job-link-info" style="display:none;font-size:11px;color:var(--mid);margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" onclick="saveJob()">Simpan</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-job')">Batal</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -1307,6 +1428,7 @@ const Cloud = {
       if (json.documents?.length)  { documents = json.documents;  DB.set('lf_docs',     documents); }
       if (json.clients?.length)    { clients   = json.clients;    DB.set('lf_clients',  clients); }
       if (json.items?.length)      { itemsDB   = json.items;      DB.set('lf_items',    itemsDB); }
+      if (json.jobs?.length)       { jobs      = json.jobs;       DB.set('lf_jobs',     jobs); }
       // BUG FIX: server bisa mengirim settings sebagai array[0] atau langsung object.
       // Sebelumnya hanya memeriksa .length, jadi format object langsung diabaikan.
       const rawSettings = json.settings;
@@ -1338,7 +1460,7 @@ const Cloud = {
     if (!Cloud.enabled()) return;
     Cloud.setStatus('syncing');
     try {
-      const payloadObj = { documents, clients, items: itemsDB, settings };
+      const payloadObj = { documents, clients, items: itemsDB, settings, jobs };
       const payload = btoa(unescape(encodeURIComponent(JSON.stringify(payloadObj))));
       const url = Cloud.url() + '?action=sync_all&payload=' + encodeURIComponent(payload);
 
@@ -1352,6 +1474,7 @@ const Cloud = {
         await Cloud._doPush('sync_clients', clients);
         await Cloud._doPush('sync_items', itemsDB);
         await Cloud._doPush('sync_settings', settings);
+        await Cloud._doPush('sync_jobs', jobs);
         Cloud.setStatus('ok');
         setTimeout(() => Cloud.setStatus('idle'), 3000);
         showToast('✅ Semua data berhasil disinkronkan (terpisah per bagian karena ukuran besar)!', 'success');
@@ -1399,6 +1522,13 @@ let settings = DB.get('lf_settings') || {};
 let logoDataUrl = DB.get('lf_logo') || null;
 let currentDocId = null;
 let currentItemCategory = '';
+
+// ── JOB TRACKER STATE ──
+let jobs = DB.get('lf_jobs') || [];
+let jobCategories = DB.get('lf_job_categories') || ['Fotografi', 'Videografi', 'Editing', 'Event', 'Umum'];
+let currentJobFilter = 'all';
+let selectedJobCategory = 'ALL';
+let currentJobId = null;
 
 // ── KATEGORI ITEM ──
 const DEFAULT_CATEGORIES = ['Fotografi', 'Videografi', 'Editing', 'Lainnya'];
@@ -1509,7 +1639,7 @@ function navigate(page) {
   const bn = document.getElementById('bn-' + page);
   if (bn) bn.classList.add('active');
 
-  const titles = { dashboard: 'Dashboard', documents: 'Semua Dokumen', clients: 'Database Klien', items: 'Database Item', settings: 'Pengaturan' };
+  const titles = { dashboard: 'Dashboard', documents: 'Semua Dokumen', jobs: 'Job Tracker', clients: 'Database Klien', items: 'Database Item', settings: 'Pengaturan' };
   document.getElementById('page-title').textContent = titles[page] || '';
 
   const actions = document.getElementById('topbar-actions');
@@ -1517,6 +1647,7 @@ function navigate(page) {
 
   if (page === 'dashboard') { renderDashboard(); }
   else if (page === 'documents') { renderDocumentsList(); }
+  else if (page === 'jobs') { updateJobCategoryOptions(); renderJobs(); }
   else if (page === 'clients') { renderClients(); }
   else if (page === 'items') { renderItems(); renderCategoryTabs(); }
   else if (page === 'settings') { loadSettings(); }
@@ -1572,6 +1703,7 @@ function resetForm(type) {
   document.getElementById('tax-detail-wrap').style.display = 'none';
   document.getElementById('items-card-list').innerHTML = '';
   document.getElementById('doc-status').value = 'draft';
+  document.getElementById('doc-confirmed').checked = false;
 }
 
 function loadDocIntoForm(doc) {
@@ -1580,6 +1712,7 @@ function loadDocIntoForm(doc) {
   document.getElementById('doc-date').value = doc.date;
   document.getElementById('doc-due-date').value = doc.dueDate || '';
   document.getElementById('doc-status').value = doc.status;
+  document.getElementById('doc-confirmed').checked = !!doc.confirmed;
   document.getElementById('client-name').value = doc.clientName || '';
   document.getElementById('client-company').value = doc.clientCompany || '';
   document.getElementById('client-phone').value = doc.clientPhone || '';
@@ -1622,6 +1755,9 @@ function onDocTypeChange() {
   } else {
     ps.style.display = 'none';
   }
+  // Field ACC hanya relevan untuk Quotation & Invoice (dokumen yang memicu pekerjaan)
+  const cw = document.getElementById('confirmed-wrap');
+  if (cw) cw.style.display = (type === 'invoice' || type === 'quotation') ? 'flex' : 'none';
 }
 
 // ── PREVIEW MODAL ──
@@ -2818,6 +2954,7 @@ function saveDocument() {
     date: document.getElementById('doc-date').value,
     dueDate: document.getElementById('doc-due-date').value,
     status: document.getElementById('doc-status').value,
+    confirmed: document.getElementById('doc-confirmed').checked,
     clientName, clientCompany: document.getElementById('client-company').value,
     clientPhone: document.getElementById('client-phone').value,
     clientEmail: document.getElementById('client-email').value,
@@ -2860,8 +2997,16 @@ function saveDocument() {
   Cloud.push('sync_docs', documents);
   currentDocId = docData.id;
   updateBadges();
+
+  // ── AUTO JOB TRACKER: kalau Quotation/Invoice sudah di-ACC, sinkronkan ke Job Tracker ──
+  if ((docData.type === 'invoice' || docData.type === 'quotation') && docData.confirmed) {
+    syncJobFromDocument(docData);
+  }
+
   showToast('✅ Dokumen berhasil disimpan!', 'success');
 }
+
+function onDocConfirmedChange() { /* efek baru terjadi saat dokumen disimpan */ }
 
 function autoSaveClient(doc) {
   if (!doc.clientName) return;
@@ -3396,6 +3541,13 @@ function deleteDoc(id) {
   documents = documents.filter(d=>d.id!==id);
   DB.set('lf_docs',documents);
   Cloud.push('sync_docs', documents);
+  // Job yang tertaut ke dokumen ini tetap ada di tracker, tapi tautannya dilepas
+  const linkedJobs = jobs.filter(j => j.linkedDocId === id);
+  if (linkedJobs.length) {
+    jobs.forEach(j => { if (j.linkedDocId === id) { j.linkedDocId = null; j.linkedDocType = null; j.linkedDocNumber = null; } });
+    DB.set('lf_jobs', jobs);
+    Cloud.push('sync_jobs', jobs);
+  }
   renderDocumentsList();
   showToast('🗑️ Dokumen dihapus','success');
 }
@@ -3532,7 +3684,7 @@ function generateDocNumber(type) {
 
 function clearAllData() {
   localStorage.clear();
-  documents=[]; clients=[]; itemsDB=[]; settings={}; logoDataUrl=null;
+  documents=[]; clients=[]; itemsDB=[]; settings={}; logoDataUrl=null; jobs=[];
   showToast('🗑️ Semua data direset','success');
   navigate('dashboard');
 }
@@ -3572,6 +3724,345 @@ function updateBadges() {
   if (el('nav-badge-sp'))  { el('nav-badge-sp').textContent  = spCount;  el('nav-badge-sp').style.display  = spCount  ? 'inline':'none'; }
   if (el('nav-badge-inv')) { el('nav-badge-inv').textContent = invCount; el('nav-badge-inv').style.display = invCount ? 'inline':'none'; }
   if (el('nav-badge-bp'))  { el('nav-badge-bp').textContent  = bpCount;  el('nav-badge-bp').style.display  = bpCount  ? 'inline':'none'; }
+
+  // Badge Job Tracker: hitung job yang belum 100% selesai
+  if (el('job-count-badge')) {
+    const activeJobs = jobs.filter(j => {
+      const total = (j.subtasks||[]).length, done = (j.subtasks||[]).filter(s=>s.done).length;
+      return !(total > 0 && done === total);
+    }).length;
+    el('job-count-badge').textContent = activeJobs;
+  }
+}
+
+// ══════════════════════════════════════════
+// ── JOB TRACKER ──
+// ══════════════════════════════════════════
+
+function saveJobsToStorage() {
+  DB.set('lf_jobs', jobs);
+  Cloud.push('sync_jobs', jobs);
+  updateBadges();
+}
+
+// Buat / update job otomatis dari dokumen yang sudah di-ACC
+function syncJobFromDocument(doc) {
+  const existing = jobs.find(j => j.linkedDocId === doc.id);
+  const deadline = doc.dueDate || doc.date || today();
+
+  if (existing) {
+    // Update info yang mengikuti dokumen, tapi jangan timpa progres/checklist manual user
+    existing.clientName = doc.clientName;
+    existing.deadline = existing.deadline || deadline;
+    existing.linkedDocNumber = doc.number;
+    existing.linkedDocType = doc.type;
+    saveJobsToStorage();
+    showToast('🔄 Job Tracker disinkronkan dari dokumen ini', 'success');
+    return;
+  }
+
+  const itemTitles = (doc.items || []).map(i => i.name).filter(Boolean);
+  const title = itemTitles.length ? itemTitles.join(', ') : `${doc.type === 'invoice' ? 'Invoice' : 'Quotation'} ${doc.number}`;
+
+  const newJob = {
+    id: uid(),
+    title,
+    clientName: doc.clientName || '',
+    category: jobCategories[0] || 'Umum',
+    notes: `Dibuat otomatis dari ${doc.type === 'invoice' ? 'Invoice' : 'Quotation'} #${doc.number} (di-ACC klien).`,
+    deadline,
+    completedDate: null,
+    isLateOnCompletion: false,
+    subtasks: [
+      { id: uid(), text: 'Briefing & Persiapan', done: false },
+      { id: uid(), text: 'Pelaksanaan / Shooting', done: false },
+      { id: uid(), text: 'Editing', done: false },
+      { id: uid(), text: 'Delivery ke Klien', done: false },
+    ],
+    linkedDocId: doc.id,
+    linkedDocType: doc.type,
+    linkedDocNumber: doc.number,
+    source: 'auto',
+    createdAt: now(),
+  };
+  jobs.unshift(newJob);
+  saveJobsToStorage();
+  showToast('🗂️ Job baru otomatis ditambahkan ke Job Tracker!', 'success');
+}
+
+function updateJobCategoryOptions() {
+  const sel = document.getElementById('j-category');
+  if (sel) sel.innerHTML = jobCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  const tabs = document.getElementById('job-category-tabs');
+  if (tabs) {
+    tabs.innerHTML = `<button class="tab-btn ${selectedJobCategory==='ALL'?'active':''}" onclick="filterJobsByCategory('ALL',this)">Semua Kategori</button>` +
+      jobCategories.map(c => `<button class="tab-btn ${selectedJobCategory===c?'active':''}" onclick="filterJobsByCategory('${c.replace(/'/g,"\\'")}',this)">${c}</button>`).join('');
+  }
+}
+
+function filterJobsByCategory(cat, btn) {
+  selectedJobCategory = cat;
+  document.querySelectorAll('#job-category-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderJobs();
+}
+
+function addNewJobCategoryPrompt() {
+  const name = prompt('Nama kategori baru:');
+  if (!name || !name.trim()) return;
+  if (!jobCategories.includes(name.trim())) {
+    jobCategories.push(name.trim());
+    DB.set('lf_job_categories', jobCategories);
+    Cloud.push('sync_job_categories', jobCategories);
+    updateJobCategoryOptions();
+  }
+  document.getElementById('j-category').value = name.trim();
+}
+
+function setJobFilter(f) {
+  currentJobFilter = f;
+  renderJobs();
+}
+
+function openJobModal(id = null) {
+  currentJobId = id;
+  updateJobCategoryOptions();
+  document.getElementById('job-subtask-inputs').innerHTML = '';
+  document.getElementById('job-link-info').style.display = 'none';
+
+  if (id) {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+    document.getElementById('job-modal-title').textContent = 'Edit Job';
+    document.getElementById('j-id').value = job.id;
+    document.getElementById('j-title').value = job.title;
+    document.getElementById('j-client').value = job.clientName || '';
+    document.getElementById('j-deadline').value = job.deadline;
+    document.getElementById('j-category').value = job.category;
+    document.getElementById('j-notes').value = job.notes || '';
+    (job.subtasks || []).forEach(s => addJobSubtaskRow(s.text, s.done));
+    if (job.linkedDocId) {
+      const li = document.getElementById('job-link-info');
+      li.style.display = 'block';
+      li.innerHTML = `🔗 Tertaut ke ${job.linkedDocType === 'invoice' ? 'Invoice' : 'Quotation'} #${job.linkedDocNumber}`;
+    } else if (job.source === 'auto') {
+      const li = document.getElementById('job-link-info');
+      li.style.display = 'block';
+      li.innerHTML = `⚠️ Dokumen sumber job ini sudah dihapus.`;
+    }
+  } else {
+    document.getElementById('job-modal-title').textContent = 'Tambah Job Baru';
+    document.getElementById('j-id').value = '';
+    document.getElementById('j-title').value = '';
+    document.getElementById('j-client').value = '';
+    document.getElementById('j-deadline').value = today();
+    document.getElementById('j-notes').value = '';
+    addJobSubtaskRow('');
+  }
+  openModal('modal-job');
+}
+
+function addJobSubtaskRow(text = '', done = false) {
+  const container = document.getElementById('job-subtask-inputs');
+  const row = document.createElement('div');
+  row.className = 'job-subtask-input-row';
+  row.innerHTML = `
+    <input type="checkbox" ${done ? 'checked' : ''} class="j-sub-done">
+    <input type="text" class="j-sub-text" placeholder="Cth: Sortir foto RAW" value="${text.replace(/"/g,'&quot;')}">
+    <button type="button" class="item-remove-btn" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function saveJob() {
+  const title = document.getElementById('j-title').value.trim();
+  const deadline = document.getElementById('j-deadline').value;
+  if (!title) { showToast('⚠️ Nama job wajib diisi!', 'error'); return; }
+  if (!deadline) { showToast('⚠️ Deadline wajib diisi!', 'error'); return; }
+
+  const subtasks = [];
+  document.querySelectorAll('#job-subtask-inputs .job-subtask-input-row').forEach(row => {
+    const text = row.querySelector('.j-sub-text').value.trim();
+    const done = row.querySelector('.j-sub-done').checked;
+    if (text) subtasks.push({ id: uid(), text, done });
+  });
+
+  const id = document.getElementById('j-id').value;
+  if (id) {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+    const wasDone = job.subtasks.length > 0 && job.subtasks.every(s => s.done);
+    job.title = title;
+    job.clientName = document.getElementById('j-client').value.trim();
+    job.deadline = deadline;
+    job.category = document.getElementById('j-category').value;
+    job.notes = document.getElementById('j-notes').value.trim();
+    job.subtasks = subtasks;
+    const isNowDone = subtasks.length > 0 && subtasks.every(s => s.done);
+    if (isNowDone && !wasDone) {
+      job.completedDate = today();
+      job.isLateOnCompletion = new Date(today()) > new Date(job.deadline);
+    } else if (!isNowDone) {
+      job.completedDate = null;
+    }
+  } else {
+    jobs.unshift({
+      id: uid(),
+      title,
+      clientName: document.getElementById('j-client').value.trim(),
+      category: document.getElementById('j-category').value,
+      notes: document.getElementById('j-notes').value.trim(),
+      deadline,
+      completedDate: null,
+      isLateOnCompletion: false,
+      subtasks,
+      linkedDocId: null, linkedDocType: null, linkedDocNumber: null,
+      source: 'manual',
+      createdAt: now(),
+    });
+  }
+  saveJobsToStorage();
+  closeModal('modal-job');
+  renderJobs();
+  showToast('✅ Job berhasil disimpan!', 'success');
+}
+
+function toggleJobSubtask(jobId, subId) {
+  const job = jobs.find(j => j.id === jobId);
+  if (!job) return;
+  const sub = job.subtasks.find(s => s.id === subId);
+  if (!sub) return;
+  sub.done = !sub.done;
+  const isDone = job.subtasks.length > 0 && job.subtasks.every(s => s.done);
+  if (isDone && !job.completedDate) {
+    job.completedDate = today();
+    job.isLateOnCompletion = new Date(today()) > new Date(job.deadline);
+  } else if (!isDone) {
+    job.completedDate = null;
+  }
+  saveJobsToStorage();
+  renderJobs();
+}
+
+function deleteJob(id) {
+  if (!confirm('Hapus job ini dari tracker?')) return;
+  jobs = jobs.filter(j => j.id !== id);
+  saveJobsToStorage();
+  renderJobs();
+  showToast('🗑️ Job dihapus', 'success');
+}
+
+function editJob(id) { openJobModal(id); }
+
+function openDocFromJob(docId) {
+  if (!docId) return;
+  const doc = documents.find(d => d.id === docId);
+  if (!doc) { showToast('⚠️ Dokumen sumber sudah tidak ada', 'error'); return; }
+  openNewDoc(doc.type, docId);
+}
+
+function renderJobs() {
+  const listEl = document.getElementById('jobs-list');
+  const searchVal = (document.getElementById('job-search-bar')?.value || '').toLowerCase();
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  let totalCount = 0, ongoingCount = 0, urgentCount = 0, doneCount = 0;
+  let onTimeDone = 0, lateDone = 0;
+  const todayD = new Date(); todayD.setHours(0,0,0,0);
+
+  ['all','ongoing','urgent','done'].forEach(f => {
+    const card = document.getElementById(`jcard-${f}`);
+    if (!card) return;
+    card.style.borderLeft = f === currentJobFilter ? '3px solid var(--gold)' : '';
+  });
+
+  const cardsToRender = [];
+
+  jobs.forEach(job => {
+    const totalSub = (job.subtasks||[]).length;
+    const doneSub = (job.subtasks||[]).filter(s=>s.done).length;
+    const progressPercent = totalSub > 0 ? Math.round((doneSub/totalSub)*100) : 0;
+    const dlDate = new Date(job.deadline); dlDate.setHours(0,0,0,0);
+    const daysDiff = Math.ceil((dlDate.getTime() - todayD.getTime()) / (1000*3600*24));
+    const isDone = totalSub > 0 && progressPercent === 100;
+    const isUrgent = !isDone && daysDiff <= 2;
+
+    if (isDone) { doneCount++; if (job.isLateOnCompletion) lateDone++; else onTimeDone++; }
+    else { ongoingCount++; totalCount++; if (isUrgent) urgentCount++; }
+
+    if (currentJobFilter === 'all' && isDone) return;
+    if (currentJobFilter === 'ongoing' && isDone) return;
+    if (currentJobFilter === 'urgent' && (!isUrgent || isDone)) return;
+    if (currentJobFilter === 'done' && !isDone) return;
+    if (selectedJobCategory !== 'ALL' && job.category !== selectedJobCategory) return;
+    if (searchVal && !job.title.toLowerCase().includes(searchVal) && !(job.clientName||'').toLowerCase().includes(searchVal) && !(job.notes||'').toLowerCase().includes(searchVal)) return;
+
+    let stripeClass = isDone ? (job.isLateOnCompletion ? 'late' : 'done') : (isUrgent ? 'urgent' : 'ongoing');
+    let badgeClass = stripeClass;
+    let badgeText = '';
+    if (isDone) {
+      badgeText = job.isLateOnCompletion ? 'Selesai (Terlambat)' : 'Selesai Tepat Waktu';
+    } else {
+      badgeText = daysDiff < 0 ? `Telat ${Math.abs(daysDiff)} Hari` : (daysDiff === 0 ? 'Hari Ini!' : `Sisa ${daysDiff} Hari`);
+    }
+
+    const formattedDeadline = dlDate.toLocaleDateString('id-ID', { day:'numeric', month:'short' });
+    const linkPill = job.linkedDocId
+      ? `<span class="job-link-pill" onclick="openDocFromJob('${job.linkedDocId}')">🔗 ${job.linkedDocType==='invoice'?'INV':'QT'} #${job.linkedDocNumber}</span>`
+      : (job.source === 'auto' ? `<span class="job-link-pill" style="background:#f0f0f0;color:#999">⚠️ Sumber terhapus</span>` : '');
+    const notesHTML = job.notes ? `<div class="job-notes-box">💬 ${job.notes}</div>` : '';
+
+    const card = document.createElement('div');
+    card.className = 'job-card';
+    card.innerHTML = `
+      <div class="stripe ${stripeClass}"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <span class="job-cat-pill">${job.category}</span>
+          ${linkPill}
+        </div>
+        <span class="job-deadline-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="job-title">${job.title}</div>
+      ${job.clientName ? `<div class="job-client">👤 Klien: <b>${job.clientName}</b></div>` : ''}
+      ${notesHTML}
+      <div class="job-progress-bar"><div class="job-progress-fill ${isDone?'done':''}" style="width:${progressPercent}%"></div></div>
+      <div style="font-size:11px;color:var(--mid);margin-bottom:6px">${progressPercent}% selesai</div>
+      <div>
+        ${(job.subtasks||[]).map(s => `
+          <label class="job-subtask-row ${s.done?'done':''}">
+            <input type="checkbox" ${s.done?'checked':''} onchange="toggleJobSubtask('${job.id}','${s.id}')">
+            <span>${s.text}</span>
+          </label>`).join('')}
+      </div>
+      <div class="job-footer">
+        <span>📅 DL: ${formattedDeadline}${isDone && job.completedDate ? ` · Selesai: ${job.completedDate}` : ''}</span>
+        <div class="actions">
+          <button onclick="editJob('${job.id}')" title="Edit">✏️</button>
+          <button onclick="deleteJob('${job.id}')" title="Hapus">🗑️</button>
+        </div>
+      </div>
+    `;
+    cardsToRender.push(card);
+  });
+
+  if (cardsToRender.length === 0) {
+    listEl.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🗂️</div><p>Belum ada job di kategori/filter ini.</p></div>`;
+  } else {
+    cardsToRender.forEach(c => listEl.appendChild(c));
+  }
+
+  document.getElementById('jstat-all').textContent = totalCount;
+  document.getElementById('jstat-ongoing').textContent = ongoingCount;
+  document.getElementById('jstat-urgent').textContent = urgentCount;
+  document.getElementById('jstat-done').textContent = doneCount;
+
+  document.getElementById('jperf-ontime').textContent = onTimeDone;
+  document.getElementById('jperf-late').textContent = lateDone;
+  const totalDone = onTimeDone + lateDone;
+  document.getElementById('jperf-rate').textContent = (totalDone > 0 ? Math.round((onTimeDone/totalDone)*100) : 0) + '%';
 }
 
 // ── CLOSE AUTOCOMPLETE ON CLICK OUTSIDE ──

@@ -224,6 +224,54 @@
   .print-payment-proof-banner .title { font-family: 'Playfair Display', serif; font-size: 16pt; font-weight: 700; color: var(--gold); }
   .print-payment-proof-banner .sub { font-size: 9pt; color: #ccc; margin-top: 4px; }
 
+  /* ── PIPELINE BOARD ── */
+  .pl-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .pl-stat { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .pl-stat-label { font-size: 11.5px; color: var(--mid); margin-bottom: 4px; }
+  .pl-stat-value { font-size: 22px; font-weight: 700; color: var(--dark); }
+  .pl-stat-value.good { color: #1d6c5c; }
+  .pl-stat-value.warn { color: #c98a12; }
+  .pl-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+  .pl-column { background: #F7F5F0; border-radius: 14px; padding: 12px; min-height: 200px; }
+  .pl-column-head { display: flex; justify-content: space-between; align-items: center; font-size: 13px; font-weight: 700; color: var(--dark); padding: 4px 6px 12px; }
+  .pl-count { background: var(--white); border: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--mid); padding: 1px 8px; border-radius: 20px; }
+  .pl-column-body { display: flex; flex-direction: column; gap: 10px; min-height: 60px; }
+  .pl-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; cursor: pointer; transition: box-shadow .15s, transform .1s; }
+  .pl-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.08); transform: translateY(-1px); }
+  .pl-card-title { font-size: 13.5px; font-weight: 700; color: var(--dark); margin-bottom: 3px; line-height: 1.35; }
+  .pl-card-client { font-size: 11.5px; color: var(--mid); margin-bottom: 8px; }
+  .pl-card-value { font-size: 13px; font-weight: 700; color: var(--gold-dark, #9a7a1f); margin-top: 6px; }
+  .pl-card-progress-bar { width: 100%; height: 5px; background: #eee; border-radius: 4px; overflow: hidden; margin-bottom: 6px; }
+  .pl-card-progress-fill { height: 100%; background: var(--gold); }
+  .pl-card-progress-label { font-size: 10.5px; color: var(--mid); margin-bottom: 8px; }
+  .pl-card-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .pl-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px; }
+  .pl-badge.unpaid { background: #FFF3CD; color: #856404; }
+  .pl-badge.paid { background: #D1FAE5; color: #065F46; }
+  .pl-badge.late { background: #FEE2E2; color: #991B1B; }
+  .pl-empty-col { font-size: 11.5px; color: #bbb; text-align: center; padding: 20px 4px; }
+  @media (max-width: 900px) {
+    .pl-board { grid-template-columns: 1fr; }
+  }
+
+  /* ── CARD DETAIL MODAL ── */
+  .cd-section { margin-bottom: 18px; }
+  .cd-section-label { font-size: 11.5px; font-weight: 700; color: var(--mid); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
+  .cd-checklist-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 13px; }
+  .cd-checklist-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--gold); }
+  .cd-checklist-row.done span { text-decoration: line-through; color: #bbb; }
+  .cd-checklist-row .rm-btn { margin-left: auto; background: none; border: none; color: #ccc; cursor: pointer; font-size: 13px; }
+  .cd-fin-box { background: #FAFAF8; border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+  /* ── QUICK START MODAL ── */
+  .qs-choice-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .qs-choice-btn { flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 14px 10px; text-align: center; cursor: pointer; background: var(--white); transition: border-color .15s, background .15s; }
+  .qs-choice-btn:hover { border-color: var(--gold); background: #FFFBF0; }
+  .qs-choice-btn.active { border-color: var(--gold); background: #FFF7E6; }
+  .qs-choice-btn .ic { font-size: 22px; margin-bottom: 6px; }
+  .qs-choice-btn .lbl { font-size: 12.5px; font-weight: 700; color: var(--dark); }
+  .qs-choice-btn .sub { font-size: 10.5px; color: var(--mid); margin-top: 2px; }
+
   /* ── JOB TRACKER ── */
   .job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
   .job-card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 16px; position: relative; overflow: hidden; transition: box-shadow .15s; }
@@ -474,7 +522,7 @@
     #tax-detail-wrap .form-row { grid-template-columns: 1fr 1fr; }
 
     /* Period selector on dashboard */
-    #page-dashboard .tab-btn { padding: 7px 10px; font-size: 11px; }
+    #page-pipeline .tab-btn { padding: 7px 10px; font-size: 11px; }
 
     /* Doc status filter row wrap */
     #page-documents .flex-between > div { flex-direction: column; gap: 6px; }
@@ -501,58 +549,21 @@
 
 <!-- SIDEBAR -->
 <nav id="sidebar">
-  <div id="sidebar-logo" onclick="navigate('dashboard');closeSidebar()">
+  <div id="sidebar-logo" onclick="navigate('pipeline');closeSidebar()">
     Kala Project
     <small>Business Documents</small>
   </div>
 
   <div class="nav-section">
-    <div class="nav-label">Main</div>
-    <button class="nav-btn active" id="nav-dashboard" onclick="navigate('dashboard');closeSidebar()">
-      <span class="icon">📊</span> Dashboard
+    <button class="nav-btn active" id="nav-pipeline" onclick="navigate('pipeline');closeSidebar()">
+      <span class="icon">📌</span> Pipeline
     </button>
-    <button class="nav-btn" id="nav-documents" onclick="navigate('documents');closeSidebar()">
-      <span class="icon">📄</span> Semua Dokumen
-      <span class="badge" id="doc-count-badge">0</span>
-    </button>
-    <button class="nav-btn" id="nav-jobs" onclick="navigate('jobs');closeSidebar()">
-      <span class="icon">🗂️</span> Job Tracker
-      <span class="badge" id="job-count-badge" style="background:#fee2e2;color:#991b1b">0</span>
-    </button>
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">Buat Dokumen</div>
-    <button class="nav-btn" onclick="openNewDoc('quotation');closeSidebar()">
-      <span class="icon">💬</span> Quotation
-      <span class="badge" id="nav-badge-qt" style="background:#e3f2fd;color:#1565c0">0</span>
-    </button>
-    <button class="nav-btn" onclick="openNewDoc('proposal');closeSidebar()">
-      <span class="icon">📋</span> Surat Penawaran
-      <span class="badge" id="nav-badge-sp" style="background:#f3e8ff;color:#6b21a8">0</span>
-    </button>
-    <button class="nav-btn" onclick="openNewDoc('invoice');closeSidebar()">
-      <span class="icon">🧾</span> Invoice
-      <span class="badge" id="nav-badge-inv" style="background:#fee2e2;color:#991b1b">0</span>
-    </button>
-    <button class="nav-btn" onclick="openNewDoc('receipt');closeSidebar()">
-      <span class="icon">✅</span> Bukti Pembayaran
-      <span class="badge" id="nav-badge-bp" style="background:#d1fae5;color:#065f46">0</span>
-    </button>
-
-  </div>
-
-  <div class="nav-section">
-    <div class="nav-label">Database</div>
     <button class="nav-btn" id="nav-clients" onclick="navigate('clients');closeSidebar()">
       <span class="icon">👥</span> Klien
     </button>
     <button class="nav-btn" id="nav-items" onclick="navigate('items');closeSidebar()">
       <span class="icon">📦</span> Item & Harga
     </button>
-  </div>
-
-  <div class="nav-section">
     <button class="nav-btn" id="nav-settings" onclick="navigate('settings');closeSidebar()">
       <span class="icon">⚙️</span> Pengaturan
     </button>
@@ -564,136 +575,75 @@
   <div id="topbar">
     <div style="display:flex;align-items:center;gap:10px">
       <button id="hamburger" onclick="toggleSidebar()">☰</button>
-      <h1 id="page-title">Dashboard</h1>
+      <h1 id="page-title">Pipeline</h1>
     </div>
     <div id="topbar-actions"></div>
   </div>
 
   <!-- BOTTOM NAV (mobile) -->
   <div id="bottom-nav">
-    <button class="bottom-nav-btn active" id="bn-dashboard" onclick="navigate('dashboard')"><span class="bn-icon">📊</span>Home</button>
-    <button class="bottom-nav-btn" id="bn-documents" onclick="navigate('documents')"><span class="bn-icon">📄</span>Dokumen</button>
-    <button class="bottom-nav-btn" id="bn-new" onclick="toggleSidebar()"><span class="bn-icon" style="background:var(--gold);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:2px">✚</span>Buat</button>
+    <button class="bottom-nav-btn active" id="bn-pipeline" onclick="navigate('pipeline')"><span class="bn-icon">📌</span>Pipeline</button>
     <button class="bottom-nav-btn" id="bn-clients" onclick="navigate('clients')"><span class="bn-icon">👥</span>Klien</button>
+    <button class="bottom-nav-btn" id="bn-new" onclick="openQuickStartModal()"><span class="bn-icon" style="background:var(--gold);border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:2px">✚</span>Buat</button>
+    <button class="bottom-nav-btn" id="bn-items" onclick="navigate('items')"><span class="bn-icon">📦</span>Item</button>
     <button class="bottom-nav-btn" id="bn-settings" onclick="navigate('settings')"><span class="bn-icon">⚙️</span>Setelan</button>
   </div>
 
   <!-- DASHBOARD -->
-  <div class="page active" id="page-dashboard">
+  <div class="page active" id="page-pipeline">
 
-    <!-- PERIODE SELECTOR -->
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px">
-      <div>
-        <div style="font-size:18px;font-weight:700;color:var(--dark)" id="dash-period-label">Bulan Ini</div>
-        <div style="font-size:12px;color:var(--mid)" id="dash-period-sub"></div>
+    <div class="pl-stats">
+      <div class="pl-stat">
+        <div class="pl-stat-label">💰 Pendapatan Bulan Ini</div>
+        <div class="pl-stat-value good" id="pl-revenue">Rp 0</div>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="tab-btn active" onclick="setDashPeriod('month',this)">Bulan Ini</button>
-        <button class="tab-btn" onclick="setDashPeriod('last3',this)">3 Bulan</button>
-        <button class="tab-btn" onclick="setDashPeriod('year',this)">Tahun Ini</button>
-        <button class="tab-btn" onclick="setDashPeriod('all',this)">Semua</button>
+      <div class="pl-stat">
+        <div class="pl-stat-label">⏳ Menunggu Dibayar</div>
+        <div class="pl-stat-value warn" id="pl-unpaid">Rp 0</div>
+      </div>
+      <div class="pl-stat">
+        <div class="pl-stat-label">📋 Nilai Pipeline</div>
+        <div class="pl-stat-value" id="pl-pipeline-value">Rp 0</div>
+      </div>
+      <div class="pl-stat">
+        <div class="pl-stat-label">💹 Profit Bulan Ini</div>
+        <div class="pl-stat-value good" id="pl-profit">Rp 0</div>
       </div>
     </div>
 
-    <!-- KPI CARDS ROW 1 -->
-    <div class="stat-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px">
-      <div class="stat-card" style="background:linear-gradient(135deg,#1d6c5c,#2d9e87);color:#fff;border:none">
-        <div class="label" style="color:rgba(255,255,255,.75)">💰 Pendapatan Masuk</div>
-        <div class="value" id="dash-revenue" style="color:#fff;font-size:22px">Rp 0</div>
-        <div class="sub" style="color:rgba(255,255,255,.65)" id="dash-revenue-count">0 invoice lunas</div>
-      </div>
-      <div class="stat-card" style="background:linear-gradient(135deg,#e67e22,#f39c12);color:#fff;border:none">
-        <div class="label" style="color:rgba(255,255,255,.75)">⏳ Menunggu Pembayaran</div>
-        <div class="value" id="dash-unpaid" style="color:#fff;font-size:22px">Rp 0</div>
-        <div class="sub" style="color:rgba(255,255,255,.65)" id="dash-unpaid-count">0 invoice belum bayar</div>
-      </div>
-      <div class="stat-card" style="background:linear-gradient(135deg,#3498db,#2980b9);color:#fff;border:none">
-        <div class="label" style="color:rgba(255,255,255,.75)">📋 Pipeline (QT/SP)</div>
-        <div class="value" id="dash-pipeline" style="color:#fff;font-size:22px">Rp 0</div>
-        <div class="sub" style="color:rgba(255,255,255,.65)" id="dash-pipeline-count">0 penawaran aktif</div>
-      </div>
-      <div class="stat-card" style="background:linear-gradient(135deg,#8e44ad,#9b59b6);color:#fff;border:none">
-        <div class="label" style="color:rgba(255,255,255,.75)">📈 Potensi Total</div>
-        <div class="value" id="dash-potential" style="color:#fff;font-size:22px">Rp 0</div>
-        <div class="sub" style="color:rgba(255,255,255,.65)">Lunas + Menunggu + Pipeline</div>
-      </div>
-      <div class="stat-card" style="background:linear-gradient(135deg,#00796b,#009688);color:#fff;border:none">
-        <div class="label" style="color:rgba(255,255,255,.75)">💹 Margin Bersih</div>
-        <div class="value" id="dash-margin-pct" style="color:#fff;font-size:22px">—</div>
-        <div class="sub" style="color:rgba(255,255,255,.65)" id="dash-margin-amt">Dari invoice yang ada HPP</div>
-      </div>
+    <div class="flex-between" style="margin-bottom:14px;gap:10px;flex-wrap:wrap">
+      <input class="search-bar" id="pl-search" placeholder="🔍 Cari pekerjaan atau klien..." oninput="renderPipeline()" style="flex:1;min-width:200px">
+      <button class="btn btn-ghost btn-sm" onclick="navigate('documents')" title="Surat Penawaran, Bukti Pembayaran, dll">📄 Dokumen Lain</button>
+      <button class="btn btn-primary" onclick="openQuickStartModal()">+ Pekerjaan Baru</button>
     </div>
 
-    <!-- ROW 1.5: STATUS DOKUMEN DETAIL -->
-    <div class="settings-card" style="padding:16px;margin-bottom:12px">
-      <div style="font-weight:700;font-size:14px;margin-bottom:12px">📂 Status Semua Dokumen</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px" id="dash-doc-status-grid"></div>
-    </div>
-
-    <!-- ROW 2: Tagihan jatuh tempo + Grafik bulanan -->
-    <div class="dash-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-
-      <!-- TAGIHAN JATUH TEMPO -->
-      <div class="settings-card" style="padding:16px;margin:0">
-        <div style="font-weight:700;font-size:14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center">
-          🔴 Tagihan Perlu Difollow-up
-          <span id="dash-overdue-badge" style="background:#f44336;color:#fff;font-size:11px;padding:2px 8px;border-radius:10px;display:none">0</span>
-        </div>
-        <div id="dash-overdue-list" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto">
-          <div style="color:var(--mid);font-size:13px;text-align:center;padding:20px 0">✅ Tidak ada tagihan menunggak</div>
-        </div>
+    <div class="pl-board">
+      <div class="pl-column">
+        <div class="pl-column-head"><span>💬 Quotation</span><span class="pl-count" id="pl-count-quotation">0</span></div>
+        <div class="pl-column-body" id="pl-col-quotation"></div>
       </div>
-
-      <!-- RINGKASAN STATUS -->
-      <div class="settings-card" style="padding:16px;margin:0">
-        <div style="font-weight:700;font-size:14px;margin-bottom:12px">📊 Breakdown Status Invoice</div>
-        <div id="dash-status-breakdown" style="display:flex;flex-direction:column;gap:8px"></div>
+      <div class="pl-column">
+        <div class="pl-column-head"><span>🏃 Berjalan</span><span class="pl-count" id="pl-count-active">0</span></div>
+        <div class="pl-column-body" id="pl-col-active"></div>
       </div>
-    </div>
-
-    <!-- ROW 3: Trend bulanan -->
-    <div class="settings-card" style="padding:16px;margin-bottom:12px">
-      <div style="font-weight:700;font-size:14px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-        📅 Trend Pendapatan 6 Bulan Terakhir
-        <span style="font-size:11px;color:var(--mid)">Hanya invoice lunas</span>
+      <div class="pl-column">
+        <div class="pl-column-head"><span>✅ Selesai</span><span class="pl-count" id="pl-count-done">0</span></div>
+        <div class="pl-column-body" id="pl-col-done"></div>
       </div>
-      <div id="dash-monthly-chart" style="display:flex;align-items:flex-end;gap:6px;height:120px;padding-bottom:24px;position:relative;overflow-x:auto"></div>
-    </div>
-
-    <!-- ROW 4: Invoice terbaru & klien teratas -->
-    <div class="dash-grid-2 dash-grid-main" style="display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px">
-
-      <!-- INVOICE TERBARU -->
-      <div class="settings-card" style="padding:16px;margin:0">
-        <div style="font-weight:700;font-size:14px;margin-bottom:12px;display:flex;justify-content:space-between">
-          📄 Invoice Terbaru
-          <button class="btn btn-ghost btn-sm" onclick="navigate('documents')">Lihat semua →</button>
-        </div>
-        <div class="table-wrap" style="margin:0">
-          <table>
-            <thead><tr><th>No.</th><th>Klien</th><th>Total</th><th>Status</th></tr></thead>
-            <tbody id="dashboard-recent-body"></tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- TOP KLIEN -->
-      <div class="settings-card" style="padding:16px;margin:0">
-        <div style="font-weight:700;font-size:14px;margin-bottom:12px">🏆 Top Klien</div>
-        <div id="dash-top-clients" style="display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto"></div>
-      </div>
-    </div>
-
-    <!-- ROW 5: Perkiraan bulan depan -->
-    <div class="settings-card" style="padding:16px;background:linear-gradient(135deg,#f8f9fa,#e8f5e9);border:1.5px solid #a5d6a7">
-      <div style="font-weight:700;font-size:14px;margin-bottom:12px">🔮 Perkiraan Bulan Depan</div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px" id="dash-forecast"></div>
     </div>
 
   </div>
 
-  <!-- DOCUMENTS LIST -->
+  <!-- DOCUMENTS LIST (legacy, diakses lewat kartu) -->
   <div class="page" id="page-documents">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn btn-ghost" onclick="navigate('pipeline')">← Kembali ke Pipeline</button>
+      <span style="flex:1"></span>
+      <button class="btn btn-primary btn-sm" onclick="openNewDoc('quotation')">+ Quotation</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewDoc('proposal')">+ Surat Penawaran</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewDoc('invoice')">+ Invoice</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewDoc('receipt')">+ Bukti Pembayaran</button>
+    </div>
     <div class="flex-between">
       <input class="search-bar" placeholder="🔍 Cari dokumen, klien..." oninput="filterDocuments(this.value)">
       <div style="display:flex;gap:8px">
@@ -813,7 +763,7 @@
             <input type="checkbox" id="doc-confirmed" onchange="onDocConfirmedChange()">
             <div class="txt">
               ✅ Sudah di-ACC / dikonfirmasi klien
-              <small>Kalau dicentang & disimpan, pekerjaan ini otomatis muncul di Job Tracker.</small>
+              <small>Kalau dicentang & disimpan: pekerjaan otomatis pindah ke "Berjalan" di Pipeline + Invoice draft otomatis dibuat.</small>
             </div>
           </div>
         </div>
@@ -1003,7 +953,7 @@
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="saveDocument()">💾 Simpan</button>
           <button class="btn btn-gold" onclick="showPreviewModal()">👁️ Preview & Cetak</button>
-          <button class="btn btn-ghost" onclick="navigate('documents')">← Kembali</button>
+          <button class="btn btn-ghost" onclick="navigate('pipeline')">← Kembali</button>
         </div>
       </div>
 
@@ -1041,6 +991,11 @@
   <div class="page" id="page-settings">
     <div class="settings-grid">
       <div class="settings-card">
+        <h3>✅ Checklist Default Produksi</h3>
+        <p style="font-size:12px;color:var(--mid);margin-bottom:10px">Langkah kerja ini otomatis dipakai tiap kali pekerjaan baru dimulai (dari ACC quotation atau langsung). Bisa tetap diubah per-pekerjaan nanti. Satu baris = satu langkah.</p>
+        <div class="form-group"><textarea id="s-checklist-template" rows="5" oninput="saveChecklistTemplateFromSettings()"></textarea></div>
+      </div>
+      <div class="settings-card">
         <h3>🏢 Profil Bisnis</h3>
         <div class="form-group"><label>Nama Brand</label><input type="text" id="s-brand-name" placeholder="Kala Project" oninput="saveSetting()"></div>
         <div class="form-group"><label>Sub-judul</label><input type="text" id="s-brand-sub" placeholder="Photography & Videography" oninput="saveSetting()"></div>
@@ -1074,6 +1029,23 @@
         <div style="background:var(--light);border-radius:8px;padding:12px;margin-top:4px">
           <div style="font-size:11px;font-weight:600;color:var(--mid);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Preview Header Dokumen</div>
           <div id="s-brand-preview" style="background:white;padding:12px 16px;border-radius:6px;border:1px solid var(--border);display:flex;align-items:center;gap:12px;min-height:56px"></div>
+        </div>
+        <div class="form-group" style="margin-top:16px">
+          <label>Tanda Tangan</label>
+          <div class="logo-upload-area" onclick="document.getElementById('s-signature-input').click()">
+            <img id="s-signature-preview" class="logo-preview" style="display:none">
+            <div id="s-signature-placeholder">✍️ Klik untuk upload tanda tangan<br><small>PNG background transparan paling bagus — Maks. 2MB</small></div>
+          </div>
+          <input type="file" id="s-signature-input" accept="image/*" style="display:none" onchange="handleSignatureUpload(event)">
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%" onclick="removeSignature()">🗑️ Hapus Tanda Tangan</button>
+          <div style="font-size:11px;color:var(--mid);margin-top:6px">Otomatis nempel di atas nama kamu di bagian tanda tangan tiap dokumen.</div>
+        </div>
+        <div class="form-group" style="margin-top:16px">
+          <label>Warna Aksen Dokumen</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="color" id="s-accent-color" value="#1a1a1a" oninput="saveSetting()" style="width:44px;height:36px;padding:2px;border:1px solid var(--border);border-radius:6px;cursor:pointer">
+            <span style="font-size:11px;color:var(--mid)">Dipakai di judul, garis tabel, dan total dokumen</span>
+          </div>
         </div>
       </div>
       <div class="settings-card">
@@ -1392,6 +1364,83 @@
   </div>
 </div>
 
+<!-- Quick Start Modal (+ Pekerjaan Baru) -->
+<div class="modal-overlay" id="modal-quick-start">
+  <div class="modal" style="max-width:420px">
+    <button class="modal-close" onclick="closeModal('modal-quick-start')">✕</button>
+    <h2>✨ Pekerjaan Baru</h2>
+    <div class="qs-choice-row">
+      <div class="qs-choice-btn active" id="qs-btn-quotation" onclick="setQuickStartMode('quotation')">
+        <div class="ic">💬</div>
+        <div class="lbl">Mulai dari Quotation</div>
+        <div class="sub">Buat penawaran formal dulu</div>
+      </div>
+      <div class="qs-choice-btn" id="qs-btn-direct" onclick="setQuickStartMode('direct')">
+        <div class="ic">🏃</div>
+        <div class="lbl">Langsung Mulai Kerja</div>
+        <div class="sub">Klien sudah oke lewat chat/telepon</div>
+      </div>
+    </div>
+
+    <div id="qs-direct-fields" style="display:none">
+      <div class="form-group"><label>Nama Pekerjaan *</label><input type="text" id="qsd-title" placeholder="Cth: Foto Produk Toko Fulan"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Nama Klien *</label><input type="text" id="qsd-client"></div>
+        <div class="form-group"><label>No. WhatsApp</label><input type="tel" id="qsd-phone" placeholder="08xxxxxxxxx"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Perkiraan Nilai (Rp)</label><input type="number" id="qsd-value" placeholder="0"></div>
+        <div class="form-group"><label>Deadline</label><input type="date" id="qsd-deadline"></div>
+      </div>
+      <p style="font-size:11px;color:var(--mid);margin-top:-4px">Invoice bisa dibuat belakangan kapan saja dari dalam kartu.</p>
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-primary" onclick="submitQuickStart()">Lanjut</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-quick-start')">Batal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Card Detail Modal -->
+<div class="modal-overlay" id="modal-card-detail">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closeModal('modal-card-detail')">✕</button>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <h2 style="margin:0">Detail Pekerjaan</h2>
+      <span id="cd-stage-badge" style="font-size:11px;font-weight:700;background:#FFF7E6;color:var(--gold-dark,#9a7a1f);padding:2px 10px;border-radius:20px"></span>
+    </div>
+
+    <div class="form-group" style="margin-top:14px"><label>Nama Pekerjaan</label><input type="text" id="cd-title"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Klien</label><input type="text" id="cd-client"></div>
+      <div class="form-group"><label>No. WhatsApp</label><input type="tel" id="cd-phone"></div>
+    </div>
+    <div class="form-group"><label>Deadline</label><input type="date" id="cd-deadline"></div>
+
+    <div class="cd-section">
+      <div class="cd-section-label">💰 Keuangan</div>
+      <div id="cd-finance-section"></div>
+    </div>
+
+    <div class="cd-section">
+      <div class="cd-section-label">✅ Checklist Produksi</div>
+      <div id="cd-checklist-list"></div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input type="text" id="cd-new-checklist-text" placeholder="Tambah langkah kerja..." style="flex:1" onkeydown="if(event.key==='Enter')addCardChecklistItem()">
+        <button class="btn btn-ghost btn-sm" onclick="addCardChecklistItem()">+ Tambah</button>
+      </div>
+    </div>
+
+    <div class="form-group"><label>Catatan</label><textarea id="cd-notes" rows="2"></textarea></div>
+
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button class="btn btn-primary" onclick="saveCardDetails()">💾 Simpan</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteCard()">🗑️</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toast"></div>
 
@@ -1481,6 +1530,8 @@ const Cloud = {
       if (json.clients?.length)    { clients   = json.clients;    DB.set('lf_clients',  clients); }
       if (json.items?.length)      { itemsDB   = json.items;      DB.set('lf_items',    itemsDB); }
       if (json.jobs?.length)       { jobs      = json.jobs;       DB.set('lf_jobs',     jobs); }
+      if (json.cards?.length)      { cards     = json.cards;      DB.set('lf_cards',    cards); }
+      if (json.checklistTemplate?.length) { defaultChecklist = json.checklistTemplate; DB.set('lf_checklist_template', defaultChecklist); }
       // BUG FIX: server bisa mengirim settings sebagai array[0] atau langsung object.
       // Sebelumnya hanya memeriksa .length, jadi format object langsung diabaikan.
       const rawSettings = json.settings;
@@ -1512,7 +1563,7 @@ const Cloud = {
     if (!Cloud.enabled()) return;
     Cloud.setStatus('syncing');
     try {
-      const payloadObj = { documents, clients, items: itemsDB, settings, jobs };
+      const payloadObj = { documents, clients, items: itemsDB, settings, jobs, cards, checklistTemplate: defaultChecklist };
       const payload = btoa(unescape(encodeURIComponent(JSON.stringify(payloadObj))));
       const url = Cloud.url() + '?action=sync_all&payload=' + encodeURIComponent(payload);
 
@@ -1527,6 +1578,8 @@ const Cloud = {
         await Cloud._doPush('sync_items', itemsDB);
         await Cloud._doPush('sync_settings', settings);
         await Cloud._doPush('sync_jobs', jobs);
+        await Cloud._doPush('sync_cards', cards);
+        await Cloud._doPush('sync_checklist_template', defaultChecklist);
         Cloud.setStatus('ok');
         setTimeout(() => Cloud.setStatus('idle'), 3000);
         showToast('✅ Semua data berhasil disinkronkan (terpisah per bagian karena ukuran besar)!', 'success');
@@ -1572,15 +1625,23 @@ let clients = DB.get('lf_clients') || [];
 let itemsDB = DB.get('lf_items') || [];
 let settings = DB.get('lf_settings') || {};
 let logoDataUrl = DB.get('lf_logo') || null;
+let signatureDataUrl = DB.get('lf_signature') || null;
 let currentDocId = null;
 let currentItemCategory = '';
 
-// ── JOB TRACKER STATE ──
+// ── JOB TRACKER STATE (legacy, dipakai untuk migrasi ke cards) ──
 let jobs = DB.get('lf_jobs') || [];
 let jobCategories = DB.get('lf_job_categories') || ['Fotografi', 'Videografi', 'Editing', 'Event', 'Umum'];
 let currentJobFilter = 'all';
 let selectedJobCategory = 'ALL';
 let currentJobId = null;
+
+// ── PIPELINE (CARDS) STATE ──
+let cards = DB.get('lf_cards') || [];
+let defaultChecklist = DB.get('lf_checklist_template') || ['Konsep & Persiapan', 'Pemotretan / Produksi', 'Editing', 'Delivery ke Klien'];
+let currentCardId = null;
+let quickStartMode = 'quotation'; // 'quotation' | 'direct'
+let pendingDirectInvoiceCardId = null; // dipakai saat "Buat Invoice" dari kartu direct-start
 
 // ── KATEGORI ITEM ──
 const DEFAULT_CATEGORIES = ['Fotografi', 'Videografi', 'Editing', 'Lainnya'];
@@ -1691,13 +1752,13 @@ function navigate(page) {
   const bn = document.getElementById('bn-' + page);
   if (bn) bn.classList.add('active');
 
-  const titles = { dashboard: 'Dashboard', documents: 'Semua Dokumen', jobs: 'Job Tracker', clients: 'Database Klien', items: 'Database Item', settings: 'Pengaturan' };
+  const titles = { pipeline: 'Pipeline', documents: 'Semua Dokumen', jobs: 'Job Tracker', clients: 'Database Klien', items: 'Database Item', settings: 'Pengaturan' };
   document.getElementById('page-title').textContent = titles[page] || '';
 
   const actions = document.getElementById('topbar-actions');
   actions.innerHTML = '';
 
-  if (page === 'dashboard') { renderDashboard(); }
+  if (page === 'pipeline') { renderPipeline(); }
   else if (page === 'documents') { renderDocumentsList(); }
   else if (page === 'jobs') { updateJobCategoryOptions(); renderJobs(); }
   else if (page === 'clients') { renderClients(); }
@@ -1707,6 +1768,7 @@ function navigate(page) {
 
 // ── NEW DOC ──
 function openNewDoc(type = 'quotation', docId = null) {
+  pendingDirectInvoiceCardId = null;
   currentDocId = docId;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById('page-editor').classList.add('active');
@@ -2237,7 +2299,7 @@ function confirmImportHistory() {
   historyParsedDocs = [];
 
   // Refresh dashboard kalau sedang di sana
-  renderDashboard();
+  renderPipeline();
 }
 
 function downloadHistoryTemplate() {
@@ -2644,6 +2706,34 @@ function removeLogo() {
   showToast('🗑️ Logo dihapus', 'success');
 }
 
+function handleSignatureUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('⚠️ File terlalu besar! Maks. 2MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    signatureDataUrl = ev.target.result;
+    DB.set('lf_signature', signatureDataUrl);
+    Cloud.push('sync_signature', signatureDataUrl);
+    const prev = document.getElementById('s-signature-preview');
+    const ph = document.getElementById('s-signature-placeholder');
+    if (prev) { prev.src = signatureDataUrl; prev.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+    showToast('✅ Tanda tangan berhasil disimpan!', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeSignature() {
+  if (!confirm('Hapus tanda tangan?')) return;
+  signatureDataUrl = null; DB.set('lf_signature', null);
+  Cloud.push('sync_signature', null);
+  const prev = document.getElementById('s-signature-preview');
+  const ph = document.getElementById('s-signature-placeholder');
+  if (prev) prev.style.display = 'none';
+  if (ph) ph.style.display = 'block';
+  showToast('🗑️ Tanda tangan dihapus', 'success');
+}
+
 function updateSettingsBrandPreview() {
   const el = document.getElementById('s-brand-preview');
   if (!el) return;
@@ -2677,6 +2767,7 @@ function updatePreview() {
   const brandName = settings.brandName || 'Kala Project';
   const brandSub  = settings.brandSub  || '';
   const brandModeActive = settings.brandMode || 'both';
+  const accentColor = settings.accentColor || '#1a1a1a';
   const docNum    = document.getElementById('doc-number').value || '-';
   const docDate   = fmtDate(document.getElementById('doc-date').value);
   const dueDate   = fmtDate(document.getElementById('doc-due-date').value);
@@ -2786,7 +2877,7 @@ function updatePreview() {
   <!-- JUDUL BESAR KIRI + SENDER KANAN -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10mm">
     <div>
-      <div style="font-size:34pt;font-weight:800;color:#1a1a1a;line-height:1;letter-spacing:-1px">${typeLabel}</div>
+      <div style="font-size:34pt;font-weight:800;color:${accentColor};line-height:1;letter-spacing:-1px">${typeLabel}</div>
       <div style="font-size:8.5pt;color:#999;margin-top:6px">no. ${docNum} &nbsp;·&nbsp; ${docDate || '-'}</div>
     </div>
     <div style="text-align:right">${senderBlock}</div>
@@ -2815,7 +2906,7 @@ function updatePreview() {
   <!-- ITEMS TABLE -->
   <table style="width:100%;border-collapse:collapse;margin-bottom:0">
     <thead>
-      <tr style="border-bottom:1.5px solid #1a1a1a">
+      <tr style="border-bottom:1.5px solid ${accentColor}">
         <th style="text-align:left;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px 8px">Deskripsi Layanan</th>
         <th style="text-align:center;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:40px">Qty</th>
         <th style="text-align:right;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:120px">Harga Satuan</th>
@@ -2830,7 +2921,7 @@ function updatePreview() {
     <div style="width:55%;min-width:220px">
       ${disc>0?`<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#888"><span>Subtotal</span><span>${fmtRp(sub)}</span></div><div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#c62828"><span>Diskon (${disc}%)</span><span>- ${fmtRp(discAmt)}</span></div>`:`<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#888"><span>Subtotal</span><span>${fmtRp(sub)}</span></div>`}
       ${taxType !== 'none' && taxRate > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#555"><span>${taxLabel} ${taxRate}% ${taxBearer==='client'?'(klien)':'(dipotong)'}</span><span>${taxBearer==='client'?'+ ':'- '}${fmtRp(taxAmt)}</span></div>` : ''}
-      <div style="display:flex;justify-content:space-between;padding:10px 8px;margin-top:4px;border-top:1.5px solid #1a1a1a">
+      <div style="display:flex;justify-content:space-between;padding:10px 8px;margin-top:4px;border-top:1.5px solid ${accentColor}">
         <span style="font-size:11pt;font-weight:700">Total ${type==='invoice'?'Tagihan':type==='receipt'?'Diterima':'Penawaran'}</span>
         <span style="font-size:14pt;font-weight:800">${fmtRp(total)}</span>
       </div>
@@ -2853,7 +2944,8 @@ function updatePreview() {
       </div>
     </div>
     <div style="text-align:right">
-      <div style="font-size:8.5pt;color:#999;margin-bottom:32px">${closing}</div>
+      <div style="font-size:8.5pt;color:#999;margin-bottom:${signatureDataUrl ? '4px' : '32px'}">${closing}</div>
+      ${signatureDataUrl ? `<img src="${signatureDataUrl}" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:2px;margin-left:auto;display:block">` : ''}
       <div style="border-top:1px solid #ccc;padding-top:4px;min-width:140px;text-align:right">
         <div style="font-weight:700;font-size:10pt">${senderName || brandName}</div>
         <div style="font-size:8pt;color:#888">${senderPosition || brandName}</div>
@@ -3050,27 +3142,27 @@ function saveDocument() {
   currentDocId = docData.id;
   updateBadges();
 
-  // ── AUTO JOB TRACKER: kalau Quotation/Invoice sudah di-ACC, sinkronkan ke Job Tracker ──
-  if ((docData.type === 'invoice' || docData.type === 'quotation') && docData.confirmed) {
-    syncJobFromDocument(docData);
+  // ── PIPELINE: Quotation yang baru di-ACC memicu job + auto-invoice ──
+  if (docData.type === 'quotation' && docData.confirmed) {
+    const wasAlreadyActive = cards.find(c => c.quotationDocId === docData.id && c.stage !== 'quotation');
+    if (!wasAlreadyActive) onQuotationConfirmed(docData);
+  }
+
+  // ── PIPELINE: Invoice yang dibuat lewat "Buat Invoice" dari kartu direct-start ──
+  if (docData.type === 'invoice' && pendingDirectInvoiceCardId) {
+    const card = cards.find(c => c.id === pendingDirectInvoiceCardId);
+    if (card) { card.invoiceDocId = docData.id; card.updatedAt = now(); saveCardsToStorage(); }
+    pendingDirectInvoiceCardId = null;
   }
 
   showToast('✅ Dokumen berhasil disimpan!', 'success');
 
-  // ── QUOTATION YANG SUDAH DI-ACC: tawarkan convert langsung ke Invoice ──
-  if (docData.type === 'quotation' && docData.confirmed) {
-    setTimeout(() => {
-      const wantConvert = confirm(`✅ Quotation "${docData.number}" ditandai sudah di-ACC klien.\n\nConvert langsung jadi Invoice sekarang?`);
-      if (wantConvert) {
-        convertToInvoice(docData.id, true);
-      } else {
-        openSendWaModal(docData);
-      }
-    }, 300);
-  } else {
-    // ── KIRIM KE WA ──
+  // ── KIRIM KE WA (skip untuk quotation yg baru saja ACC, invoice-nya sudah otomatis dibuat & belum tentu siap dikirim) ──
+  if (!(docData.type === 'quotation' && docData.confirmed)) {
     openSendWaModal(docData);
   }
+
+  navigate('pipeline');
 }
 
 function onDocConfirmedChange() { /* efek baru terjadi saat dokumen disimpan */ }
@@ -3134,267 +3226,6 @@ function renderDocsTable(tbodyId, docs) {
     </tr>`).join('');
 }
 
-// ── DASHBOARD PERIOD ──
-let dashPeriod = 'month';
-function setDashPeriod(p, btn) {
-  dashPeriod = p;
-  document.querySelectorAll('#page-dashboard .tab-btn').forEach(b => b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
-  renderDashboard();
-}
-
-function getDashDocs() {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
-  return documents.filter(d => {
-    if (!d.date) return false;
-    const dd = new Date(d.date);
-    if (dashPeriod === 'month') return dd.getFullYear()===y && dd.getMonth()===m;
-    if (dashPeriod === 'last3') {
-      const cutoff = new Date(y, m-2, 1);
-      return dd >= cutoff;
-    }
-    if (dashPeriod === 'year') return dd.getFullYear()===y;
-    return true; // all
-  });
-}
-
-function renderDashboard() {
-  const now = new Date();
-  const y = now.getFullYear(), m = now.getMonth();
-  const MONTHS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-
-  // Period label
-  const periodLabels = { month:'Bulan Ini', last3:'3 Bulan Terakhir', year:'Tahun '+y, all:'Semua Waktu' };
-  const el = id => document.getElementById(id);
-  el('dash-period-label').textContent = periodLabels[dashPeriod];
-  el('dash-period-sub').textContent = dashPeriod==='month' ? `${MONTHS[m]} ${y}` : dashPeriod==='last3' ? `${MONTHS[(m-2+12)%12]} – ${MONTHS[m]} ${y}` : '';
-
-  const docs = getDashDocs();
-  const allDocs = documents; // untuk top clients dan trend pakai semua
-
-  // ── STATUS DOKUMEN DETAIL ──
-  const docTypes = [
-    { type:'quotation', icon:'💬', label:'Quotation',        color:'#1565c0', bg:'#e3f2fd' },
-    { type:'proposal',  icon:'📋', label:'Surat Penawaran',  color:'#6b21a8', bg:'#f3e8ff' },
-    { type:'invoice',   icon:'🧾', label:'Invoice',          color:'#9a3412', bg:'#fff7ed' },
-    { type:'receipt',   icon:'✅', label:'Bukti Pembayaran', color:'#065f46', bg:'#d1fae5' },
-  ];
-  const statusDefs = [
-    { key:'draft',  label:'Draft',        color:'#9e9e9e' },
-    { key:'sent',   label:'Terkirim',     color:'#ff9800' },
-    { key:'paid',   label:'Lunas/Di-acc', color:'#4caf50' },
-    { key:'unpaid', label:'Belum Bayar',  color:'#f44336' },
-  ];
-  el('dash-doc-status-grid').innerHTML = docTypes.map(dt => {
-    const typeDocs = allDocs.filter(d=>d.type===dt.type);
-    if (!typeDocs.length) return `
-      <div style="padding:12px;border-radius:10px;border:1.5px dashed #e0e0e0;opacity:.5">
-        <div style="font-size:13px;font-weight:700;margin-bottom:8px">${dt.icon} ${dt.label}</div>
-        <div style="font-size:12px;color:var(--mid)">Belum ada dokumen</div>
-      </div>`;
-    const rows = statusDefs.map(s => {
-      const count = typeDocs.filter(d=>d.status===s.key).length;
-      const total = typeDocs.filter(d=>d.status===s.key).reduce((a,d)=>a+(d.total||0),0);
-      if (!count) return '';
-      return `<div onclick="navigateToFiltered('${dt.type}','${s.key}')" style="display:flex;justify-content:space-between;align-items:center;font-size:12px;padding:5px 6px;border-radius:6px;cursor:pointer;transition:background .15s" onmouseover="this.style.background='rgba(0,0,0,.06)'" onmouseout="this.style.background='transparent'">
-        <span style="display:flex;align-items:center;gap:5px">
-          <span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block;flex-shrink:0"></span>
-          ${s.label}
-          <span style="background:${s.color}22;color:${s.color};font-weight:700;font-size:10px;padding:1px 6px;border-radius:8px">${count}</span>
-        </span>
-        <span style="font-weight:600;color:var(--dark)">${fmtRp(total)} <span style="color:#bbb;font-size:10px">→</span></span>
-      </div>`;
-    }).filter(Boolean).join('');
-    return `
-      <div style="padding:12px;border-radius:10px;background:${dt.bg};border:1.5px solid ${dt.color}33">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:13px;font-weight:700;color:${dt.color}">${dt.icon} ${dt.label}</span>
-          <span style="font-size:11px;background:${dt.color};color:#fff;padding:1px 8px;border-radius:10px">${typeDocs.length} total</span>
-        </div>
-        ${rows || '<div style="font-size:12px;color:var(--mid)">Semua draft</div>'}
-        <div style="margin-top:8px;padding-top:8px;border-top:1px solid ${dt.color}33;display:flex;justify-content:space-between;font-size:12px">
-          <span style="color:var(--mid)">Total Nilai</span>
-          <span style="font-weight:700;color:${dt.color}">${fmtRp(typeDocs.reduce((a,d)=>a+(d.total||0),0))}</span>
-        </div>
-      </div>`;
-  }).join('');
-
-  // ── KPI ──
-  const invoices     = docs.filter(d => d.type==='invoice');
-  const paidInv      = invoices.filter(d => d.status==='paid');
-  const unpaidInv    = invoices.filter(d => d.status==='unpaid' || d.status==='sent' || d.status==='draft');
-  const pipeline     = docs.filter(d => d.type==='quotation' || d.type==='proposal');
-
-  const revenue      = paidInv.reduce((a,d) => a+(d.total||0), 0);
-  const unpaidTotal  = unpaidInv.reduce((a,d) => a+(d.total||0), 0);
-  const pipelineTotal= pipeline.reduce((a,d) => a+(d.total||0), 0);
-
-  el('dash-revenue').textContent   = fmtRp(revenue);
-  el('dash-revenue-count').textContent = `${paidInv.length} invoice lunas`;
-  el('dash-unpaid').textContent    = fmtRp(unpaidTotal);
-  el('dash-unpaid-count').textContent  = `${unpaidInv.length} invoice belum bayar`;
-  el('dash-pipeline').textContent  = fmtRp(pipelineTotal);
-  el('dash-pipeline-count').textContent= `${pipeline.length} penawaran aktif`;
-  el('dash-potential').textContent = fmtRp(revenue + unpaidTotal + pipelineTotal);
-
-  // Margin dari invoice paid yang ada HPP
-  const invWithCost = paidInv.filter(d => d.items && d.items.some(i => i.cost > 0));
-  if (invWithCost.length && el('dash-margin-pct')) {
-    const totalRev  = invWithCost.reduce((a,d)=>a+(d.total||0),0);
-    const totalCost = invWithCost.reduce((a,d)=>a+d.items.reduce((b,i)=>b+(i.cost||0)*(i.qty||1),0),0);
-    const marginPct = totalRev > 0 ? ((totalRev - totalCost) / totalRev * 100) : 0;
-    el('dash-margin-pct').textContent = marginPct.toFixed(1) + '%';
-    el('dash-margin-pct').style.fontSize = '22px';
-    el('dash-margin-amt').textContent = `+${fmtRp(totalRev - totalCost)} dari ${invWithCost.length} invoice`;
-  }
-
-  // ── TAGIHAN JATUH TEMPO / PERLU FOLLOW-UP ──
-  const today = new Date(); today.setHours(0,0,0,0);
-  const overdueList = allDocs
-    .filter(d => d.type==='invoice' && (d.status==='unpaid'||d.status==='sent'))
-    .map(d => {
-      const due = d.dueDate ? new Date(d.dueDate) : null;
-      const age = due ? Math.floor((today-due)/86400000) : null;
-      return {...d, due, age};
-    })
-    .sort((a,b) => (b.age||0)-(a.age||0));
-
-  const badge = el('dash-overdue-badge');
-  badge.textContent = overdueList.length;
-  badge.style.display = overdueList.length ? 'inline' : 'none';
-
-  el('dash-overdue-list').innerHTML = overdueList.length ? overdueList.map(d => {
-    const ageText = d.age===null ? 'Tanpa due date' : d.age>0 ? `⚠️ Lewat ${d.age} hari` : d.age===0 ? '🔔 Jatuh tempo hari ini' : `${Math.abs(d.age)} hari lagi`;
-    const ageColor = d.age===null?'#999': d.age>0?'#f44336': d.age===0?'#ff9800':'#4caf50';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:var(--bg);border-radius:8px;gap:8px;cursor:pointer" onclick="openNewDoc('invoice','${d.id}')">
-      <div style="min-width:0">
-        <div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.clientName||'-'}</div>
-        <div style="font-size:11px;color:var(--mid)">${d.number}</div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        <div style="font-size:12px;font-weight:700">${fmtRp(d.total||0)}</div>
-        <div style="font-size:10px;color:${ageColor};font-weight:600">${ageText}</div>
-      </div>
-    </div>`;
-  }).join('') : `<div style="color:var(--mid);font-size:13px;text-align:center;padding:20px 0">✅ Tidak ada tagihan menunggak</div>`;
-
-  // ── STATUS BREAKDOWN ──
-  const statusMap = [
-    { key:'paid',   label:'✅ Lunas',        color:'#4caf50', docs: allDocs.filter(d=>d.type==='invoice'&&d.status==='paid') },
-    { key:'unpaid', label:'⏳ Belum Bayar',  color:'#ff9800', docs: allDocs.filter(d=>d.type==='invoice'&&(d.status==='unpaid'||d.status==='sent')) },
-    { key:'qt',     label:'📋 Quotation',    color:'#2196f3', docs: allDocs.filter(d=>d.type==='quotation'||d.type==='proposal') },
-    { key:'draft',  label:'📝 Draft',        color:'#9e9e9e', docs: allDocs.filter(d=>d.status==='draft') },
-  ];
-  const maxVal = Math.max(...statusMap.map(s=>s.docs.reduce((a,d)=>a+(d.total||0),0)), 1);
-  el('dash-status-breakdown').innerHTML = statusMap.map(s => {
-    const total = s.docs.reduce((a,d)=>a+(d.total||0),0);
-    const pct = Math.round(total/maxVal*100);
-    return `<div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span>${s.label} <span style="color:var(--mid)">(${s.docs.length})</span></span>
-        <span style="font-weight:600">${fmtRp(total)}</span>
-      </div>
-      <div style="background:#f0f0f0;border-radius:4px;height:7px">
-        <div style="background:${s.color};width:${pct}%;height:7px;border-radius:4px;transition:width .4s"></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  // ── TREND 6 BULAN ──
-  const months6 = Array.from({length:6}, (_,i) => {
-    const d = new Date(y, m-5+i, 1);
-    return { label: MONTHS[d.getMonth()], y: d.getFullYear(), m: d.getMonth() };
-  });
-  const monthlyRevenue = months6.map(mo => ({
-    label: mo.label,
-    value: allDocs.filter(d => {
-      if (d.type!=='invoice'||d.status!=='paid'||!d.date) return false;
-      const dd = new Date(d.date);
-      return dd.getFullYear()===mo.y && dd.getMonth()===mo.m;
-    }).reduce((a,d)=>a+(d.total||0),0)
-  }));
-  const maxMonthly = Math.max(...monthlyRevenue.map(m=>m.value), 1);
-  el('dash-monthly-chart').innerHTML = monthlyRevenue.map(mo => {
-    const h = Math.max(Math.round(mo.value/maxMonthly*100), mo.value>0?4:0);
-    const isCurrent = mo.label === MONTHS[m];
-    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:40px">
-      <div style="font-size:10px;color:var(--mid);white-space:nowrap">${mo.value>0?fmtRpShort(mo.value):''}</div>
-      <div style="width:100%;background:${isCurrent?'#1d6c5c':'#a5d6a7'};height:${h}px;border-radius:4px 4px 0 0;transition:height .4s;min-height:${mo.value>0?4:0}px"></div>
-      <div style="font-size:11px;color:${isCurrent?'var(--dark)':'var(--mid)'};font-weight:${isCurrent?700:400}">${mo.label}</div>
-    </div>`;
-  }).join('');
-
-  // ── INVOICE TERBARU (tabel ringkas) ──
-  const recentInv = allDocs.filter(d=>d.type==='invoice').slice(0,6);
-  const statusBadge = { paid:'badge-paid', unpaid:'badge-unpaid', sent:'badge-sent', draft:'badge-draft' };
-  const statusLabel = { paid:'Lunas', unpaid:'Belum Bayar', sent:'Terkirim', draft:'Draft' };
-  el('dashboard-recent-body').innerHTML = recentInv.length ? recentInv.map(d=>`
-    <tr style="cursor:pointer" onclick="openNewDoc('invoice','${d.id}')">
-      <td style="font-size:11px">${d.number}</td>
-      <td style="font-size:12px;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${d.clientName||'-'}</td>
-      <td style="font-size:12px;font-weight:600;white-space:nowrap">${fmtRp(d.total||0)}</td>
-      <td><span class="badge-status ${statusBadge[d.status]||'badge-draft'}">${statusLabel[d.status]||d.status}</span></td>
-    </tr>`).join('')
-  : `<tr><td colspan="4" style="text-align:center;color:var(--mid);padding:20px;font-size:13px">Belum ada invoice</td></tr>`;
-
-  // ── TOP KLIEN ──
-  const clientRevMap = {};
-  allDocs.filter(d=>d.type==='invoice'&&d.status==='paid'&&d.clientName).forEach(d=>{
-    clientRevMap[d.clientName] = (clientRevMap[d.clientName]||0)+(d.total||0);
-  });
-  const topClients = Object.entries(clientRevMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  const maxClient = topClients[0]?.[1]||1;
-  el('dash-top-clients').innerHTML = topClients.length ? topClients.map(([name,val],i)=>`
-    <div>
-      <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px">
-        <span style="font-weight:600">${i+1}. ${name}</span>
-        <span style="color:var(--mid)">${fmtRp(val)}</span>
-      </div>
-      <div style="background:#f0f0f0;border-radius:4px;height:5px">
-        <div style="background:#1d6c5c;width:${Math.round(val/maxClient*100)}%;height:5px;border-radius:4px"></div>
-      </div>
-    </div>`).join('')
-  : `<div style="color:var(--mid);font-size:13px;text-align:center;padding:20px 0">Belum ada data klien</div>`;
-
-  // ── PERKIRAAN BULAN DEPAN ──
-  // Rata-rata 3 bulan terakhir
-  const last3months = Array.from({length:3},(_,i)=>{
-    const d=new Date(y,m-2+i,1);
-    return {y:d.getFullYear(),m:d.getMonth()};
-  });
-  const avg3 = last3months.map(mo =>
-    allDocs.filter(d=>d.type==='invoice'&&d.status==='paid'&&d.date&&new Date(d.date).getFullYear()===mo.y&&new Date(d.date).getMonth()===mo.m)
-      .reduce((a,d)=>a+(d.total||0),0)
-  );
-  const avgRevenue = avg3.reduce((a,b)=>a+b,0)/3;
-  const pendingPipeline = allDocs.filter(d=>(d.type==='quotation'||d.type==='proposal')&&d.status!=='paid').reduce((a,d)=>a+(d.total||0),0);
-  const nextMonth = MONTHS[(m+1)%12];
-
-  el('dash-forecast').innerHTML = `
-    <div style="text-align:center;padding:12px;background:#fff;border-radius:10px;border:1px solid #e0e0e0">
-      <div style="font-size:11px;color:var(--mid);margin-bottom:4px">📊 Rata-rata Bulanan</div>
-      <div style="font-size:18px;font-weight:800;color:#1d6c5c">${fmtRp(avgRevenue)}</div>
-      <div style="font-size:10px;color:var(--mid)">Berdasarkan 3 bln terakhir</div>
-    </div>
-    <div style="text-align:center;padding:12px;background:#fff;border-radius:10px;border:1px solid #e0e0e0">
-      <div style="font-size:11px;color:var(--mid);margin-bottom:4px">🔮 Proyeksi ${nextMonth}</div>
-      <div style="font-size:18px;font-weight:800;color:#8e44ad">${fmtRp(avgRevenue * 1.1)}</div>
-      <div style="font-size:10px;color:var(--mid)">Rata-rata + optimis 10%</div>
-    </div>
-    <div style="text-align:center;padding:12px;background:#fff;border-radius:10px;border:1px solid #e0e0e0">
-      <div style="font-size:11px;color:var(--mid);margin-bottom:4px">💼 Pipeline Aktif</div>
-      <div style="font-size:18px;font-weight:800;color:#e67e22">${fmtRp(pendingPipeline)}</div>
-      <div style="font-size:10px;color:var(--mid)">Potensi jika semua di-acc</div>
-    </div>
-    <div style="text-align:center;padding:12px;background:#fff;border-radius:10px;border:1px solid #e0e0e0">
-      <div style="font-size:11px;color:var(--mid);margin-bottom:4px">🎯 Target ${nextMonth}</div>
-      <div style="font-size:18px;font-weight:800;color:#2196f3">${fmtRp(Math.max(avgRevenue*1.2, pendingPipeline*0.7))}</div>
-      <div style="font-size:10px;color:var(--mid)">Proyeksi + konversi pipeline</div>
-    </div>`;
-
-  updateBadges();
-}
 
 // Format Rp singkat (1.5Jt, 3.2Jt)
 function fmtRpShort(n) {
@@ -3597,13 +3428,25 @@ function convertToInvoice(id, skipConfirm = false) {
   Cloud.push('sync_docs', documents);
   updateBadges();
 
-  // Kalau ada job tracker yang tertaut ke Quotation ini (dari alur ACC), pindahkan tautannya ke Invoice baru
+  // Kalau ada job legacy yang tertaut ke Quotation ini, pindahkan tautannya ke Invoice baru
   const linkedJob = jobs.find(j => j.linkedDocId === id);
   if (linkedJob) {
     linkedJob.linkedDocId = newInv.id;
     linkedJob.linkedDocType = 'invoice';
     linkedJob.linkedDocNumber = newInv.number;
     saveJobsToStorage();
+  }
+
+  // Kalau ada kartu Pipeline yang tertaut ke Quotation ini, pindahkan tautannya juga & mulai job-nya
+  let card = cards.find(c => c.quotationDocId === id);
+  if (card) {
+    card.invoiceDocId = newInv.id;
+    if (card.stage === 'quotation') card.stage = 'active';
+    if (!card.checklist || !card.checklist.length) {
+      card.checklist = defaultChecklist.map(text => ({ id: uid(), text, done: false }));
+    }
+    card.updatedAt = now();
+    saveCardsToStorage();
   }
 
   showToast(`✅ Invoice "${newInv.number}" berhasil dibuat dari ${doc.number}!`, 'success');
@@ -3633,9 +3476,9 @@ function confirmQuickPaid() {
   DB.set('lf_docs', documents);
   Cloud.push('sync_docs', documents);
   updateBadges();
-  renderDocumentsList();
   closeModal('modal-quick-paid');
   showToast('✅ Invoice ditandai Lunas!', 'success');
+  navigate('pipeline');
 }
 
 function deleteDoc(id) {
@@ -3643,13 +3486,20 @@ function deleteDoc(id) {
   documents = documents.filter(d=>d.id!==id);
   DB.set('lf_docs',documents);
   Cloud.push('sync_docs', documents);
-  // Job yang tertaut ke dokumen ini tetap ada di tracker, tapi tautannya dilepas
+  // Job lama (legacy) yang tertaut ke dokumen ini tautannya dilepas
   const linkedJobs = jobs.filter(j => j.linkedDocId === id);
   if (linkedJobs.length) {
     jobs.forEach(j => { if (j.linkedDocId === id) { j.linkedDocId = null; j.linkedDocType = null; j.linkedDocNumber = null; } });
     DB.set('lf_jobs', jobs);
     Cloud.push('sync_jobs', jobs);
   }
+  // Kartu Pipeline yang tertaut ke dokumen ini tautannya dilepas (kartu tetap ada)
+  let cardTouched = false;
+  cards.forEach(c => {
+    if (c.quotationDocId === id) { c.quotationDocId = null; cardTouched = true; }
+    if (c.invoiceDocId === id) { c.invoiceDocId = null; cardTouched = true; }
+  });
+  if (cardTouched) saveCardsToStorage();
   renderDocumentsList();
   showToast('🗑️ Dokumen dihapus','success');
 }
@@ -3664,8 +3514,9 @@ function printDocById(id) {
 // ── SETTINGS ──
 function loadSettings() {
   const s = settings;
+  document.getElementById('s-checklist-template').value = defaultChecklist.join('\n');
   ['brand-name','brand-sub','owner-name','owner-position','email','phone','address','social','bank-name','bank-no','bank-holder',
-   'prefix-qt','prefix-sp','prefix-inv','prefix-bp','note-qt','note-inv','tnc',
+   'prefix-qt','prefix-sp','prefix-inv','prefix-bp','note-qt','note-inv','tnc','accent-color',
    'counter-qt','counter-sp','counter-inv','counter-bp','sync-url'].forEach(k => {
     const el = document.getElementById('s-'+k);
     if (!el || el.type === 'hidden') return;
@@ -3688,6 +3539,13 @@ function loadSettings() {
     const prev = document.getElementById('s-logo-preview');
     const ph = document.getElementById('s-logo-placeholder');
     if (prev) { prev.src = logoDataUrl; prev.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+  }
+  // Restore signature preview
+  if (signatureDataUrl) {
+    const prev = document.getElementById('s-signature-preview');
+    const ph = document.getElementById('s-signature-placeholder');
+    if (prev) { prev.src = signatureDataUrl; prev.style.display = 'block'; }
     if (ph) ph.style.display = 'none';
   }
   // Restore brand mode toggle
@@ -3734,8 +3592,9 @@ async function bootstrapFromCloud() {
   showToast('⏳ Mengambil data dari cloud...', 'success');
   const pulled = await Cloud.pull();
   if (pulled) {
+    migrateToCardsIfNeeded();
     updateBadges();
-    renderDashboard();
+    renderPipeline();
     loadSettings(); // reload UI settings dengan data baru dari cloud
     showToast('✅ Data berhasil diambil! Settings, dokumen, klien sudah diperbarui.', 'success');
     const banner = document.getElementById('bootstrap-banner');
@@ -3746,7 +3605,7 @@ async function bootstrapFromCloud() {
 }
 function saveSetting() {
   ['brand-name','brand-sub','owner-name','owner-position','email','phone','address','social','bank-name','bank-no','bank-holder',
-   'prefix-qt','prefix-sp','prefix-inv','prefix-bp','note-qt','note-inv','tnc',
+   'prefix-qt','prefix-sp','prefix-inv','prefix-bp','note-qt','note-inv','tnc','accent-color',
    'counter-qt','counter-sp','counter-inv','counter-bp','sync-url'].forEach(k => {
     // BUG FIX: skip hidden inputs (s-gsheet-clients, s-gsheet-items) — nilainya
     // selalu kosong karena type=hidden, tapi tetap menimpa settings yang ada.
@@ -3786,9 +3645,10 @@ function generateDocNumber(type) {
 
 function clearAllData() {
   localStorage.clear();
-  documents=[]; clients=[]; itemsDB=[]; settings={}; logoDataUrl=null; jobs=[];
+  documents=[]; clients=[]; itemsDB=[]; settings={}; logoDataUrl=null; signatureDataUrl=null; jobs=[]; cards=[];
+  defaultChecklist = ['Konsep & Persiapan', 'Pemotretan / Produksi', 'Editing', 'Delivery ke Klien'];
   showToast('🗑️ Semua data direset','success');
-  navigate('dashboard');
+  navigate('pipeline');
 }
 
 // ── MODAL ──
@@ -3808,10 +3668,12 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function now() { return new Date().toISOString(); }
 function today() { return new Date().toISOString().split('T')[0]; }
 
-// Hitung profit/margin job dari item invoice yang tertaut (butuh HPP/cost terisi di item)
-function calcJobMargin(job) {
-  if (!job.linkedDocId) return null;
-  const doc = documents.find(d => d.id === job.linkedDocId);
+// ══════════════════════════════════════════
+// ── PIPELINE (CARDS) — 1 kartu = 1 pekerjaan ──
+// ══════════════════════════════════════════
+
+// Hitung margin dari sebuah dokumen invoice (butuh HPP/cost terisi di item)
+function calcDocMargin(doc) {
   if (!doc || !doc.items || !doc.items.length) return null;
   const revenue = doc.items.reduce((a,i) => a + (i.total || 0), 0);
   const cost = doc.items.reduce((a,i) => a + ((i.cost || 0) * (i.qty || 1)), 0);
@@ -3820,6 +3682,468 @@ function calcJobMargin(job) {
   const marginPct = Math.round((profit / revenue) * 100);
   return { revenue, cost, profit, marginPct };
 }
+
+function saveCardsToStorage() {
+  DB.set('lf_cards', cards);
+  Cloud.push('sync_cards', cards);
+}
+
+function saveChecklistTemplate() {
+  DB.set('lf_checklist_template', defaultChecklist);
+  Cloud.push('sync_checklist_template', defaultChecklist);
+}
+
+function saveChecklistTemplateFromSettings() {
+  const lines = document.getElementById('s-checklist-template').value.split('\n').map(l => l.trim()).filter(Boolean);
+  defaultChecklist = lines.length ? lines : defaultChecklist;
+  saveChecklistTemplate();
+}
+
+// ── MIGRASI SATU KALI DARI DATA LAMA (documents + jobs) ──
+function migrateToCardsIfNeeded() {
+  if (DB.get('lf_cards') !== null) return; // sudah pernah migrasi, jangan diulang
+
+  const built = [];
+  const usedInvoiceIds = new Set();
+
+  // 1. Mulai dari setiap Quotation
+  documents.filter(d => d.type === 'quotation').forEach(qt => {
+    const linkedJob = jobs.find(j => j.linkedDocId === qt.id || (j.linkedDocId && documents.find(dd => dd.id===j.linkedDocId && dd.sourceQtId===qt.id)));
+    const linkedInvoice = documents.find(d => d.type === 'invoice' && d.sourceQtId === qt.id);
+    if (linkedInvoice) usedInvoiceIds.add(linkedInvoice.id);
+
+    const jobForThis = jobs.find(j => j.linkedDocId === qt.id || (linkedInvoice && j.linkedDocId === linkedInvoice.id));
+
+    let stage = 'quotation';
+    if (qt.confirmed || linkedInvoice) stage = 'active';
+    if (linkedInvoice && linkedInvoice.status === 'paid' && jobForThis && jobForThis.subtasks && jobForThis.subtasks.length && jobForThis.subtasks.every(s=>s.done)) stage = 'done';
+
+    built.push({
+      id: uid(),
+      title: qt.items && qt.items.length ? qt.items.map(i=>i.name).filter(Boolean).join(', ') : qt.number,
+      clientName: qt.clientName || '',
+      clientPhone: qt.clientPhone || '',
+      stage,
+      quotationDocId: qt.id,
+      invoiceDocId: linkedInvoice ? linkedInvoice.id : null,
+      checklist: jobForThis ? (jobForThis.subtasks||[]).map(s=>({id:s.id||uid(), text:s.text, done:s.done})) : [],
+      notes: (jobForThis && jobForThis.notes) || '',
+      deadline: (jobForThis && jobForThis.deadline) || qt.dueDate || qt.date || today(),
+      estValue: qt.total || 0,
+      createdAt: qt.createdAt || now(),
+      updatedAt: now(),
+      completedAt: (jobForThis && jobForThis.completedDate) || null,
+    });
+  });
+
+  // 2. Invoice yang berdiri sendiri (tanpa quotation sumber)
+  documents.filter(d => d.type === 'invoice' && !usedInvoiceIds.has(d.id) && !d.sourceQtId).forEach(inv => {
+    const jobForThis = jobs.find(j => j.linkedDocId === inv.id);
+    let stage = inv.status === 'paid' && jobForThis && jobForThis.subtasks && jobForThis.subtasks.length && jobForThis.subtasks.every(s=>s.done) ? 'done' : 'active';
+    built.push({
+      id: uid(),
+      title: inv.items && inv.items.length ? inv.items.map(i=>i.name).filter(Boolean).join(', ') : inv.number,
+      clientName: inv.clientName || '',
+      clientPhone: inv.clientPhone || '',
+      stage,
+      quotationDocId: null,
+      invoiceDocId: inv.id,
+      checklist: jobForThis ? (jobForThis.subtasks||[]).map(s=>({id:s.id||uid(), text:s.text, done:s.done})) : [],
+      notes: (jobForThis && jobForThis.notes) || '',
+      deadline: (jobForThis && jobForThis.deadline) || inv.dueDate || inv.date || today(),
+      estValue: inv.total || 0,
+      createdAt: inv.createdAt || now(),
+      updatedAt: now(),
+      completedAt: (jobForThis && jobForThis.completedDate) || null,
+    });
+  });
+
+  // 3. Job manual tanpa dokumen sama sekali
+  jobs.filter(j => !j.linkedDocId && j.source === 'manual').forEach(j => {
+    const isDone = j.subtasks && j.subtasks.length && j.subtasks.every(s=>s.done);
+    built.push({
+      id: uid(),
+      title: j.title,
+      clientName: j.clientName || '',
+      clientPhone: '',
+      stage: isDone ? 'done' : 'active',
+      quotationDocId: null,
+      invoiceDocId: null,
+      checklist: (j.subtasks||[]).map(s=>({id:s.id||uid(), text:s.text, done:s.done})),
+      notes: j.notes || '',
+      deadline: j.deadline || today(),
+      estValue: 0,
+      createdAt: j.createdAt || now(),
+      updatedAt: now(),
+      completedAt: j.completedDate || null,
+    });
+  });
+
+  cards = built;
+  saveCardsToStorage();
+}
+
+function getCardInvoice(card) { return card.invoiceDocId ? documents.find(d => d.id === card.invoiceDocId) : null; }
+function getCardQuotation(card) { return card.quotationDocId ? documents.find(d => d.id === card.quotationDocId) : null; }
+
+function cardChecklistProgress(card) {
+  const total = (card.checklist||[]).length;
+  const done = (card.checklist||[]).filter(s=>s.done).length;
+  return { total, done, pct: total > 0 ? Math.round((done/total)*100) : 0 };
+}
+
+function cardEffectiveValue(card) {
+  const inv = getCardInvoice(card);
+  if (inv) return inv.total || 0;
+  const qt = getCardQuotation(card);
+  if (qt) return qt.total || 0;
+  return card.estValue || 0;
+}
+
+// Cek & pindahkan kartu ke 'done' otomatis kalau checklist 100% & (tidak ada invoice ATAU invoice sudah lunas)
+function reevaluateCardStage(card) {
+  if (card.stage === 'quotation') return; // belum ACC, jangan disentuh
+  const prog = cardChecklistProgress(card);
+  const inv = getCardInvoice(card);
+  const financeOk = !inv || inv.status === 'paid';
+  const workOk = prog.total === 0 ? false : prog.pct === 100;
+  if (workOk && financeOk) {
+    if (card.stage !== 'done') { card.stage = 'done'; card.completedAt = today(); }
+  } else if (card.stage === 'done') {
+    card.stage = 'active'; card.completedAt = null;
+  }
+}
+
+// ── DIPANGGIL DARI saveDocument() SAAT QUOTATION DI-ACC ──
+function onQuotationConfirmed(doc) {
+  let card = cards.find(c => c.quotationDocId === doc.id);
+  if (!card) {
+    card = {
+      id: uid(), title: doc.items && doc.items.length ? doc.items.map(i=>i.name).filter(Boolean).join(', ') : doc.number,
+      clientName: doc.clientName || '', clientPhone: doc.clientPhone || '',
+      stage: 'quotation', quotationDocId: doc.id, invoiceDocId: null,
+      checklist: [], notes: '', deadline: doc.dueDate || doc.date || today(), estValue: doc.total || 0,
+      createdAt: now(), updatedAt: now(), completedAt: null,
+    };
+    cards.push(card);
+  }
+  card.stage = 'active';
+  card.updatedAt = now();
+  if (!card.checklist || !card.checklist.length) {
+    card.checklist = defaultChecklist.map(text => ({ id: uid(), text, done: false }));
+  }
+
+  // Auto-generate invoice draft (silent, tidak buka editor / tidak trigger WA modal)
+  if (!card.invoiceDocId) {
+    const newInv = {
+      ...doc,
+      id: uid(),
+      type: 'invoice',
+      number: generateDocNumber('invoice'),
+      date: today(),
+      dueDate: '',
+      status: 'unpaid',
+      confirmed: true,
+      bankName: doc.bankName || settings.bankName || '',
+      bankNumber: doc.bankNumber || settings.bankNo || '',
+      bankHolder: doc.bankHolder || settings.bankHolder || '',
+      notes: settings.noteInv || doc.notes || '',
+      sourceQtId: doc.id,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    documents.unshift(newInv);
+    incrementCounter('invoice');
+    DB.set('lf_docs', documents);
+    Cloud.push('sync_docs', documents);
+    card.invoiceDocId = newInv.id;
+    showToast(`🏃 Job dimulai & Invoice "${newInv.number}" otomatis dibuat (draft)`, 'success');
+  } else {
+    showToast('🏃 Job dimulai!', 'success');
+  }
+
+  saveCardsToStorage();
+  updateBadges();
+}
+
+// ── QUICK START MODAL ──
+function openQuickStartModal() {
+  quickStartMode = 'quotation';
+  document.getElementById('qs-btn-quotation').classList.add('active');
+  document.getElementById('qs-btn-direct').classList.remove('active');
+  document.getElementById('qs-direct-fields').style.display = 'none';
+  ['qsd-title','qsd-client','qsd-phone','qsd-value'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('qsd-deadline').value = today();
+  openModal('modal-quick-start');
+}
+
+function setQuickStartMode(mode) {
+  quickStartMode = mode;
+  document.getElementById('qs-btn-quotation').classList.toggle('active', mode==='quotation');
+  document.getElementById('qs-btn-direct').classList.toggle('active', mode==='direct');
+  document.getElementById('qs-direct-fields').style.display = mode==='direct' ? 'block' : 'none';
+}
+
+function submitQuickStart() {
+  if (quickStartMode === 'quotation') {
+    closeModal('modal-quick-start');
+    openNewDoc('quotation');
+    return;
+  }
+  const title = document.getElementById('qsd-title').value.trim();
+  const clientName = document.getElementById('qsd-client').value.trim();
+  const clientPhone = document.getElementById('qsd-phone').value.trim();
+  const value = parseFloat(document.getElementById('qsd-value').value) || 0;
+  const deadline = document.getElementById('qsd-deadline').value || today();
+  if (!title) { showToast('⚠️ Nama pekerjaan wajib diisi!', 'error'); return; }
+  if (!clientName) { showToast('⚠️ Nama klien wajib diisi!', 'error'); return; }
+
+  const card = {
+    id: uid(), title, clientName, clientPhone,
+    stage: 'active', quotationDocId: null, invoiceDocId: null,
+    checklist: defaultChecklist.map(text => ({ id: uid(), text, done: false })),
+    notes: '', deadline, estValue: value,
+    createdAt: now(), updatedAt: now(), completedAt: null,
+  };
+  cards.unshift(card);
+  saveCardsToStorage();
+  closeModal('modal-quick-start');
+  showToast('🏃 Pekerjaan baru ditambahkan ke Berjalan!', 'success');
+  renderPipeline();
+  openCardDetail(card.id);
+}
+
+// ── RENDER PAPAN PIPELINE ──
+function renderPipeline() {
+  const search = (document.getElementById('pl-search')?.value || '').toLowerCase();
+  const cols = { quotation: [], active: [], done: [] };
+
+  let monthRevenue = 0, unpaidTotal = 0, pipelineValue = 0, monthProfit = 0;
+  const now2 = new Date(); const curM = now2.getMonth(), curY = now2.getFullYear();
+
+  cards.forEach(card => {
+    if (search && !card.title.toLowerCase().includes(search) && !(card.clientName||'').toLowerCase().includes(search)) return;
+    reevaluateCardStage(card);
+    cols[card.stage] = cols[card.stage] || [];
+    cols[card.stage].push(card);
+
+    const inv = getCardInvoice(card);
+    if (inv) {
+      if (inv.status === 'paid' && inv.paymentDate) {
+        const pd = new Date(inv.paymentDate);
+        if (pd.getMonth()===curM && pd.getFullYear()===curY) {
+          monthRevenue += inv.total || 0;
+          const margin = calcDocMargin(inv);
+          if (margin) monthProfit += margin.profit;
+        }
+      } else if (inv.status !== 'paid') {
+        unpaidTotal += inv.total || 0;
+      }
+    } else if (card.stage === 'quotation') {
+      pipelineValue += cardEffectiveValue(card);
+    }
+  });
+  saveCardsToStorage();
+
+  document.getElementById('pl-revenue').textContent = fmtRp(monthRevenue);
+  document.getElementById('pl-unpaid').textContent = fmtRp(unpaidTotal);
+  document.getElementById('pl-pipeline-value').textContent = fmtRp(pipelineValue);
+  document.getElementById('pl-profit').textContent = fmtRp(monthProfit);
+
+  ['quotation','active','done'].forEach(stage => {
+    const list = cols[stage] || [];
+    document.getElementById('pl-count-'+stage).textContent = list.length;
+    const body = document.getElementById('pl-col-'+stage);
+    if (!list.length) {
+      body.innerHTML = `<div class="pl-empty-col">Belum ada</div>`;
+      return;
+    }
+    body.innerHTML = list.map(card => renderCardHTML(card, stage)).join('');
+  });
+}
+
+function renderCardHTML(card, stage) {
+  const value = cardEffectiveValue(card);
+  let inner = `<div class="pl-card-title">${card.title}</div>`;
+  inner += card.clientName ? `<div class="pl-card-client">👤 ${card.clientName}</div>` : '';
+
+  if (stage === 'active') {
+    const prog = cardChecklistProgress(card);
+    if (prog.total > 0) {
+      inner += `<div class="pl-card-progress-bar"><div class="pl-card-progress-fill" style="width:${prog.pct}%"></div></div>
+        <div class="pl-card-progress-label">${prog.done}/${prog.total} langkah selesai</div>`;
+    }
+    const inv = getCardInvoice(card);
+    inner += `<div class="pl-card-badges">`;
+    if (inv) {
+      inner += inv.status === 'paid'
+        ? `<span class="pl-badge paid">✅ Lunas</span>`
+        : `<span class="pl-badge unpaid">⏳ Belum Dibayar</span>`;
+    } else {
+      inner += `<span class="pl-badge unpaid">📝 Belum ada invoice</span>`;
+    }
+    inner += `</div>`;
+  } else if (stage === 'done') {
+    inner += `<div class="pl-card-badges"><span class="pl-badge paid">✅ Selesai</span></div>`;
+  }
+
+  inner += `<div class="pl-card-value">${fmtRp(value)}</div>`;
+  return `<div class="pl-card" onclick="openCardDetail('${card.id}')">${inner}</div>`;
+}
+
+// ── CARD DETAIL MODAL ──
+function openCardDetail(id) {
+  const card = cards.find(c => c.id === id);
+  if (!card) return;
+  currentCardId = id;
+
+  document.getElementById('cd-title').value = card.title;
+  document.getElementById('cd-client').value = card.clientName || '';
+  document.getElementById('cd-phone').value = card.clientPhone || '';
+  document.getElementById('cd-deadline').value = card.deadline || '';
+  document.getElementById('cd-notes').value = card.notes || '';
+
+  renderCardChecklist(card);
+  renderCardFinanceSection(card);
+
+  document.getElementById('cd-stage-badge').textContent = { quotation:'💬 Quotation', active:'🏃 Berjalan', done:'✅ Selesai' }[card.stage];
+  openModal('modal-card-detail');
+}
+
+function renderCardChecklist(card) {
+  const wrap = document.getElementById('cd-checklist-list');
+  wrap.innerHTML = (card.checklist||[]).map(s => `
+    <div class="cd-checklist-row ${s.done?'done':''}">
+      <input type="checkbox" ${s.done?'checked':''} onchange="toggleCardChecklistItem('${s.id}')">
+      <span>${s.text}</span>
+      <button class="rm-btn" onclick="removeCardChecklistItem('${s.id}')">✕</button>
+    </div>`).join('') || `<div style="font-size:12px;color:var(--mid)">Belum ada langkah kerja.</div>`;
+}
+
+function toggleCardChecklistItem(subId) {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  const item = card.checklist.find(s => s.id === subId);
+  if (!item) return;
+  item.done = !item.done;
+  card.updatedAt = now();
+  reevaluateCardStage(card);
+  saveCardsToStorage();
+  renderCardChecklist(card);
+  document.getElementById('cd-stage-badge').textContent = { quotation:'💬 Quotation', active:'🏃 Berjalan', done:'✅ Selesai' }[card.stage];
+}
+
+function removeCardChecklistItem(subId) {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  card.checklist = card.checklist.filter(s => s.id !== subId);
+  saveCardsToStorage();
+  renderCardChecklist(card);
+}
+
+function addCardChecklistItem() {
+  const input = document.getElementById('cd-new-checklist-text');
+  const text = input.value.trim();
+  if (!text) return;
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  card.checklist = card.checklist || [];
+  card.checklist.push({ id: uid(), text, done: false });
+  input.value = '';
+  saveCardsToStorage();
+  renderCardChecklist(card);
+}
+
+function renderCardFinanceSection(card) {
+  const wrap = document.getElementById('cd-finance-section');
+  const qt = getCardQuotation(card);
+  const inv = getCardInvoice(card);
+
+  let html = '';
+  if (qt) {
+    html += `<div class="cd-fin-box" style="margin-bottom:8px">
+      <span>💬 Quotation <b>#${qt.number}</b> — ${fmtRp(qt.total||0)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="openNewDoc('quotation','${qt.id}')">✏️ Buka</button>
+    </div>`;
+  }
+  if (inv) {
+    const statusBadge = inv.status === 'paid'
+      ? `<span class="pl-badge paid">✅ Lunas</span>`
+      : `<span class="pl-badge unpaid">⏳ Belum Dibayar</span>`;
+    html += `<div class="cd-fin-box">
+      <span>🧾 Invoice <b>#${inv.number}</b> — ${fmtRp(inv.total||0)} ${statusBadge}</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-gold btn-sm" onclick="sendCardInvoiceViaWa('${inv.id}')">📤 Kirim</button>
+        <button class="btn btn-ghost btn-sm" onclick="openNewDoc('invoice','${inv.id}')">✏️ Buka</button>
+        ${inv.status !== 'paid' ? `<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7" onclick="quickMarkPaidFromCard('${inv.id}')">✅ Tandai Lunas</button>` : ''}
+      </div>
+    </div>`;
+  } else {
+    html += `<div class="cd-fin-box">
+      <span style="color:var(--mid);font-size:12.5px">📝 Belum ada invoice untuk pekerjaan ini</span>
+      <button class="btn btn-primary btn-sm" onclick="createInvoiceFromCard()">+ Buat Invoice</button>
+    </div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function quickMarkPaidFromCard(invId) {
+  closeModal('modal-card-detail');
+  quickMarkPaid(invId);
+}
+
+function sendCardInvoiceViaWa(invId) {
+  const doc = documents.find(d => d.id === invId);
+  if (!doc) return;
+  closeModal('modal-card-detail');
+  openNewDoc('invoice', invId); // isi form tersembunyi dari data invoice ini
+  openSendWaModal(doc);
+  navigate('pipeline');
+}
+
+function createInvoiceFromCard() {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  const cardId = card.id;
+  closeModal('modal-card-detail');
+  openNewDoc('invoice');
+  pendingDirectInvoiceCardId = cardId;
+  // Prefill klien setelah editor terbuka
+  setTimeout(() => {
+    document.getElementById('client-name').value = card.clientName || '';
+    if (card.clientPhone) document.getElementById('client-phone').value = card.clientPhone;
+    onClientInput();
+    if (card.estValue > 0 && document.querySelectorAll('#items-card-list .item-card').length === 0) {
+      addItemRow({ name: card.title, qty: 1, price: card.estValue });
+      updateTotals();
+    }
+  }, 150);
+}
+
+function saveCardDetails() {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  card.title = document.getElementById('cd-title').value.trim() || card.title;
+  card.clientName = document.getElementById('cd-client').value.trim();
+  card.clientPhone = document.getElementById('cd-phone').value.trim();
+  card.deadline = document.getElementById('cd-deadline').value;
+  card.notes = document.getElementById('cd-notes').value.trim();
+  card.updatedAt = now();
+  saveCardsToStorage();
+  closeModal('modal-card-detail');
+  renderPipeline();
+  showToast('✅ Pekerjaan disimpan!', 'success');
+}
+
+function deleteCard() {
+  if (!confirm('Hapus pekerjaan ini dari Pipeline? (Dokumen quotation/invoice yang tertaut tidak ikut terhapus)')) return;
+  cards = cards.filter(c => c.id !== currentCardId);
+  saveCardsToStorage();
+  closeModal('modal-card-detail');
+  renderPipeline();
+  showToast('🗑️ Pekerjaan dihapus dari Pipeline', 'success');
+}
+
 function fmtRp(n) { return 'Rp ' + (Math.round(n)||0).toLocaleString('id-ID'); }
 function fmtDate(d) { if (!d) return ''; try { return new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}); } catch { return d; } }
 function esc(s) { return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -4338,15 +4662,16 @@ async function initCloudSync(manual = false) {
   const pulled = await Cloud.pull();
   if (pulled) {
     updateBadges();
-    renderDashboard();
+    renderPipeline();
     if (manual) showToast('✅ Data berhasil diambil dari cloud!', 'success');
   }
 }
 
-window.addEventListener('load', () => {
+window.addEventListener('load', async () => {
+  await initCloudSync(); // kalau device baru & cloud sync aktif, ini isi documents/jobs dulu
+  migrateToCardsIfNeeded();
   updateBadges();
-  renderDashboard();
-  initCloudSync();
+  renderPipeline();
 });
 </script>
 </body>

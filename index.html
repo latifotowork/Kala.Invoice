@@ -3057,8 +3057,20 @@ function saveDocument() {
 
   showToast('✅ Dokumen berhasil disimpan!', 'success');
 
-  // ── KIRIM KE WA ──
-  openSendWaModal(docData);
+  // ── QUOTATION YANG SUDAH DI-ACC: tawarkan convert langsung ke Invoice ──
+  if (docData.type === 'quotation' && docData.confirmed) {
+    setTimeout(() => {
+      const wantConvert = confirm(`✅ Quotation "${docData.number}" ditandai sudah di-ACC klien.\n\nConvert langsung jadi Invoice sekarang?`);
+      if (wantConvert) {
+        convertToInvoice(docData.id, true);
+      } else {
+        openSendWaModal(docData);
+      }
+    }, 300);
+  } else {
+    // ── KIRIM KE WA ──
+    openSendWaModal(docData);
+  }
 }
 
 function onDocConfirmedChange() { /* efek baru terjadi saat dokumen disimpan */ }
@@ -3557,10 +3569,10 @@ function deleteItem(id) {
 }
 
 // ── CONVERT QUOTATION → INVOICE ──
-function convertToInvoice(id) {
+function convertToInvoice(id, skipConfirm = false) {
   const doc = documents.find(d => d.id === id);
   if (!doc || doc.type !== 'quotation') return;
-  if (!confirm(`Convert Quotation "${doc.number}" menjadi Invoice?\n\nDokumen baru akan dibuat dengan semua data yang sama.`)) return;
+  if (!skipConfirm && !confirm(`Convert Quotation "${doc.number}" menjadi Invoice?\n\nDokumen baru akan dibuat dengan semua data yang sama.`)) return;
 
   const newInv = {
     ...doc,
@@ -3584,6 +3596,16 @@ function convertToInvoice(id) {
   DB.set('lf_docs', documents);
   Cloud.push('sync_docs', documents);
   updateBadges();
+
+  // Kalau ada job tracker yang tertaut ke Quotation ini (dari alur ACC), pindahkan tautannya ke Invoice baru
+  const linkedJob = jobs.find(j => j.linkedDocId === id);
+  if (linkedJob) {
+    linkedJob.linkedDocId = newInv.id;
+    linkedJob.linkedDocType = 'invoice';
+    linkedJob.linkedDocNumber = newInv.number;
+    saveJobsToStorage();
+  }
+
   showToast(`✅ Invoice "${newInv.number}" berhasil dibuat dari ${doc.number}!`, 'success');
   renderDocumentsList();
 

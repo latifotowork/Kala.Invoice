@@ -1166,11 +1166,12 @@
           <strong>Untuk memasukkan invoice lama dari bulan-bulan sebelumnya:</strong>
           Upload file <b>.csv</b> dengan format berikut (baris pertama = header, dilewati otomatis):<br><br>
           <code style="background:#fff3cd;padding:2px 6px;border-radius:4px;font-size:11px">
-            No. Dokumen, Tipe, Tanggal, Klien, Perusahaan, Telepon, Email, Alamat Klien, Nama Item, Qty, Harga Satuan, Keterangan Item, Diskon(%), PPN(%), Catatan, Status, Bank, No. Rekening, Atas Nama
+            No. Dokumen, Tipe, Tanggal, Klien, Perusahaan, Telepon, Email, Alamat Klien, Nama Item, Qty, Harga Satuan, Keterangan Item, Diskon(%), PPN(%), Catatan, Status, Bank, No. Rekening, Atas Nama, Ref. Quotation
           </code><br><br>
           💡 <b>Tips:</b> Jika satu invoice punya <b>banyak item</b>, buat baris terpisah untuk setiap item dengan No. Dokumen yang sama — sistem akan menggabungkannya otomatis.<br>
           Kolom <b>Tipe</b> isi dengan: <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">invoice</code>, <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">quotation</code>, <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">proposal</code>, atau <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">receipt</code><br>
-          Kolom <b>Status</b> isi dengan: <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">paid</code>, <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">unpaid</code>, <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">sent</code>, atau <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">draft</code>
+          Kolom <b>Status</b> isi dengan: <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">paid</code>, <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">unpaid</code>, <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">sent</code>, atau <code style="background:#fff3cd;padding:1px 4px;border-radius:3px">draft</code><br>
+          Kolom <b>Ref. Quotation</b> (opsional, khusus baris Invoice): isi dengan No. Dokumen Quotation asalnya, biar Invoice & Quotation itu nyambung jadi 1 kartu yang sama di Pipeline — bukan 2 kartu terpisah.
         </div>
         <div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px">
           <div class="form-group" style="flex:1;min-width:240px;margin:0">
@@ -2110,7 +2111,7 @@ function parseHistoryCSV(csv) {
 
   // Kolom: [0]NoDoc [1]Tipe [2]Tanggal [3]Klien [4]Perusahaan [5]Telp [6]Email [7]Alamat
   //        [8]NamaItem [9]Qty [10]Harga [11]KetItem [12]Diskon [13]PPN [14]Catatan [15]Status
-  //        [16]Bank [17]NoRek [18]AtasNama
+  //        [16]Bank [17]NoRek [18]AtasNama [19]Ref.Quotation (opsional, khusus tipe invoice)
 
   // Grup baris berdasarkan No. Dokumen
   const docsMap = new Map();
@@ -2124,7 +2125,7 @@ function parseHistoryCSV(csv) {
       const type = typeMap[typeRaw] || 'invoice';
 
       const statusRaw = (row[15]||'paid').trim().toLowerCase();
-      const statusMap = { paid:'paid', lunas:'paid', unpaid:'unpaid', 'belum bayar':'unpaid', 'belum dibayar':'unpaid', sent:'sent', terkirim:'sent', draft:'draft' };
+      const statusMap = { paid:'paid', lunas:'paid', unpaid:'unpaid', 'belum bayar':'unpaid', 'belum dibayar':'unpaid', sent:'sent', terkirim:'sent', draft:'draft', approved:'sent', disetujui:'sent' };
       const status = statusMap[statusRaw] || 'paid';
 
       // Normalisasi tanggal — coba berbagai format
@@ -2155,10 +2156,11 @@ function parseHistoryCSV(csv) {
         bankNumber: (row[17]||settings.bankNo||'').trim(),
         bankHolder: (row[18]||settings.bankHolder||'').trim(),
         paymentNote: '',
-        paymentDate: '',
+        paymentDate: status === 'paid' ? dateVal : '',
         paymentMethod: 'Transfer Bank',
         total: 0,
         isHistorical: true,
+        _qtRefNumber: (row[19]||'').trim() || null, // dipakai di post-pass untuk nyambungin ke quotation asal
         createdAt: now(),
         updatedAt: now(),
       });
@@ -2185,7 +2187,17 @@ function parseHistoryCSV(csv) {
     if (doc.items.length === 0) doc.total = 0;
   });
 
-  return [...docsMap.values()];
+  // Post-pass: sambungkan invoice ke quotation asalnya (kalau kolom Ref. Quotation diisi)
+  const allDocs = [...docsMap.values()];
+  allDocs.forEach(doc => {
+    if (doc.type === 'invoice' && doc._qtRefNumber) {
+      const qt = allDocs.find(d => d.type === 'quotation' && d.number === doc._qtRefNumber);
+      if (qt) doc.sourceQtId = qt.id;
+    }
+    delete doc._qtRefNumber;
+  });
+
+  return allDocs;
 }
 
 function normalizeDate(raw) {
@@ -2294,6 +2306,7 @@ function confirmImportHistory() {
   DB.set('lf_clients', clients);
   Cloud.push('sync_docs', documents);
   Cloud.push('sync_clients', clients);
+  reconcileCardsWithDocuments();
   updateBadges();
 
   prog.classList.remove('show');
@@ -2309,12 +2322,12 @@ function confirmImportHistory() {
 }
 
 function downloadHistoryTemplate() {
-  const header = 'No. Dokumen,Tipe,Tanggal,Klien,Perusahaan,Telepon,Email,Alamat Klien,Nama Item,Qty,Harga Satuan,Keterangan Item,Diskon(%),PPN(%),Catatan,Status,Bank,No. Rekening,Atas Nama';
+  const header = 'No. Dokumen,Tipe,Tanggal,Klien,Perusahaan,Telepon,Email,Alamat Klien,Nama Item,Qty,Harga Satuan,Keterangan Item,Diskon(%),PPN(%),Catatan,Status,Bank,No. Rekening,Atas Nama,Ref. Quotation';
   const examples = [
-    'INV/2025/01/001,invoice,2025-01-15,Budi Santoso,PT Maju Jaya,081234567890,budi@majujaya.com,"Jl. Sudirman No. 1 Jakarta",Fotografi Corporate,1,3500000,Full Day Photographer,0,0,Terima kasih atas kepercayaannya,paid,BCA,1234567890,Abdul Latif',
-    'INV/2025/01/001,invoice,2025-01-15,Budi Santoso,PT Maju Jaya,081234567890,budi@majujaya.com,"Jl. Sudirman No. 1 Jakarta",Editing & Retouching,1,1500000,50 foto final,0,0,Terima kasih atas kepercayaannya,paid,BCA,1234567890,Abdul Latif',
-    'INV/2025/02/001,invoice,2025-02-20,Siti Rahayu,CV Kreasi Mandiri,089876543210,siti@kreasi.com,"Jl. Gatot Subroto No. 5",Videografi Event,1,5000000,Wedding Video Highlight,0,11,DP sudah diterima,paid,BCA,1234567890,Abdul Latif',
-    'QT/2025/03/001,quotation,2025-03-05,Andi Wijaya,Bank Nusantara,082111222333,,,"Fotografi Annual Report",2,4000000,Per hari shooting,10,0,Penawaran berlaku 7 hari,sent,,,',
+    'QT/2025/03/001,quotation,2025-03-05,Andi Wijaya,Bank Nusantara,082111222333,,,"Fotografi Annual Report",2,4000000,Per hari shooting,10,0,Penawaran berlaku 7 hari,sent,,,,',
+    'INV/2025/03/001,invoice,2025-03-10,Andi Wijaya,Bank Nusantara,082111222333,,,"Fotografi Annual Report",2,4000000,Per hari shooting,10,0,Terima kasih atas kepercayaannya,paid,BCA,1234567890,Abdul Latif,QT/2025/03/001',
+    'INV/2025/01/001,invoice,2025-01-15,Budi Santoso,PT Maju Jaya,081234567890,budi@majujaya.com,"Jl. Sudirman No. 1 Jakarta",Fotografi Corporate,1,3500000,Full Day Photographer,0,0,Terima kasih atas kepercayaannya,paid,BCA,1234567890,Abdul Latif,',
+    'INV/2025/01/001,invoice,2025-01-15,Budi Santoso,PT Maju Jaya,081234567890,budi@majujaya.com,"Jl. Sudirman No. 1 Jakarta",Editing & Retouching,1,1500000,50 foto final,0,0,Terima kasih atas kepercayaannya,paid,BCA,1234567890,Abdul Latif,',
   ];
   const csv = [header, ...examples].join('\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -3961,6 +3974,9 @@ function ensureCardForInvoice(doc) {
   let card = cards.find(c => c.invoiceDocId === doc.id);
   if (card) return card;
 
+  const isPaidAlready = doc.status === 'paid';
+  const freshChecklist = defaultChecklist.map(text => ({ id: uid(), text, done: isPaidAlready }));
+
   // Invoice ini berasal dari convert Quotation? Coba tempel ke kartu quotation itu dulu
   if (doc.sourceQtId) {
     card = cards.find(c => c.quotationDocId === doc.sourceQtId);
@@ -3968,7 +3984,11 @@ function ensureCardForInvoice(doc) {
       card.invoiceDocId = doc.id;
       if (card.stage === 'quotation') card.stage = 'active';
       if (!card.checklist || !card.checklist.length) {
-        card.checklist = defaultChecklist.map(text => ({ id: uid(), text, done: false }));
+        card.checklist = freshChecklist;
+      }
+      if (isPaidAlready && card.checklist.every(s => s.done)) {
+        card.stage = 'done';
+        card.completedAt = doc.paymentDate || doc.date || today();
       }
       card.updatedAt = now();
       saveCardsToStorage();
@@ -3976,15 +3996,18 @@ function ensureCardForInvoice(doc) {
     }
   }
 
-  // Nggak ada kartu sama sekali -> buat baru langsung di kolom "Berjalan"
+  // Nggak ada kartu sama sekali -> buat baru. Kalau invoice-nya sudah lunas sejak awal
+  // (misal data historis), langsung taruh di kolom "Selesai" — bukan "Berjalan".
   card = {
     id: uid(),
     title: doc.items && doc.items.length ? doc.items.map(i=>i.name).filter(Boolean).join(', ') : doc.number,
     clientName: doc.clientName || '', clientPhone: doc.clientPhone || '',
-    stage: 'active', quotationDocId: null, invoiceDocId: doc.id, mouDocId: null,
-    checklist: defaultChecklist.map(text => ({ id: uid(), text, done: false })),
+    stage: isPaidAlready ? 'done' : 'active',
+    quotationDocId: null, invoiceDocId: doc.id, mouDocId: null,
+    checklist: freshChecklist,
     notes: '', deadline: doc.dueDate || doc.date || today(), estValue: doc.total || 0,
-    createdAt: doc.createdAt || now(), updatedAt: now(), completedAt: null,
+    createdAt: doc.createdAt || now(), updatedAt: now(),
+    completedAt: isPaidAlready ? (doc.paymentDate || doc.date || today()) : null,
   };
   cards.push(card);
   saveCardsToStorage();

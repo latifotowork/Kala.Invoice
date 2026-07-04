@@ -1826,4 +1826,3093 @@ function resetForm(type) {
   document.getElementById('doc-confirmed').checked = false;
 }
 
-function loadDocIntoFo
+function loadDocIntoForm(doc) {
+  document.getElementById('doc-type-select').value = doc.type;
+  document.getElementById('doc-number').value = doc.number;
+  document.getElementById('doc-date').value = doc.date;
+  document.getElementById('doc-due-date').value = doc.dueDate || '';
+  document.getElementById('doc-status').value = doc.status;
+  document.getElementById('doc-confirmed').checked = !!doc.confirmed;
+  document.getElementById('client-name').value = doc.clientName || '';
+  document.getElementById('client-company').value = doc.clientCompany || '';
+  document.getElementById('client-phone').value = doc.clientPhone || '';
+  document.getElementById('client-email').value = doc.clientEmail || '';
+  document.getElementById('client-address').value = doc.clientAddress || '';
+  document.getElementById('doc-notes').value = doc.notes || '';
+  document.getElementById('doc-closing').value = doc.closing || 'Hormat kami,';
+  document.getElementById('sender-name').value = doc.senderName || '';
+  const spEl = document.getElementById('sender-position');
+  if (spEl) spEl.value = doc.senderPosition || '';
+  document.getElementById('sender-address').value = doc.senderAddress || '';
+  document.getElementById('bank-name').value = doc.bankName || '';
+  document.getElementById('bank-number').value = doc.bankNumber || '';
+  document.getElementById('bank-holder').value = doc.bankHolder || '';
+  document.getElementById('payment-note').value = doc.paymentNote || '';
+  document.getElementById('payment-date').value = doc.paymentDate || '';
+  document.getElementById('payment-method').value = doc.paymentMethod || 'Transfer Bank';
+  document.getElementById('discount-input').value = doc.discount || 0;
+  if (document.getElementById('discount-mode')) document.getElementById('discount-mode').value = doc.discountMode || 'pct';
+  const taxType = doc.taxType || (doc.ppn > 0 ? 'ppn' : 'none');
+  document.getElementById('tax-type').value = taxType;
+  document.getElementById('tax-rate-input').value = doc.taxRate ?? doc.ppn ?? 0;
+  document.getElementById('tax-bearer').value = doc.taxBearer || 'client';
+  onTaxTypeChange();
+
+  document.getElementById('items-card-list').innerHTML = '';
+  (doc.items || []).forEach(item => addItemRow(item));
+  onDocTypeChange();
+  updateTotals();
+}
+
+// ── DOC TYPE CHANGE ──
+function onDocTypeChange() {
+  const type = document.getElementById('doc-type-select').value;
+  const ps = document.getElementById('payment-section');
+  const pdw = document.getElementById('payment-date-wrap');
+  if (type === 'invoice' || type === 'receipt') {
+    ps.style.display = 'block';
+    pdw.style.display = type === 'receipt' ? 'block' : 'none';
+  } else {
+    ps.style.display = 'none';
+  }
+  // Field ACC hanya relevan untuk Quotation & Invoice (dokumen yang memicu pekerjaan)
+  const cw = document.getElementById('confirmed-wrap');
+  if (cw) cw.style.display = (type === 'invoice' || type === 'quotation') ? 'flex' : 'none';
+}
+
+// ── PREVIEW MODAL ──
+function showPreviewModal() {
+  updatePreview();
+  openModal('modal-preview');
+}
+
+// ── SIDEBAR TOGGLE (mobile) ──
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-overlay').classList.toggle('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+// ── GOOGLE SHEETS IMPORT ──
+// Menggunakan Apps Script URL (sync-url) langsung — tidak butuh proxy eksternal
+async function importFromGSheets(target) {
+  const prog = document.getElementById('import-progress');
+  prog.classList.add('show');
+  prog.textContent = '⏳ Mengambil data dari Google Sheet...';
+
+  // Pakai Apps Script URL yang sudah diisi di pengaturan sinkronisasi
+  const syncUrl = (settings.syncUrl || document.getElementById('s-sync-url').value || '').trim();
+
+  if (!syncUrl) {
+    prog.classList.remove('show');
+    showToast('⚠️ URL Sync Apps Script belum diisi di Pengaturan → Sinkronisasi!', 'error');
+    return;
+  }
+
+  let clientsImported = 0, itemsImported = 0;
+
+  try {
+    // Ambil semua data sekaligus dari Apps Script (action=all)
+    const res = await fetch(syncUrl + '?action=all');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json.error) throw new Error(json.error);
+
+    // ── Import Klien ──
+    if ((target === 'clients' || target === 'both') && json.clients?.length) {
+      json.clients.forEach(row => {
+        const name = (row.name || '').trim();
+        if (!name) return;
+        const exists = clients.find(c => c.name.toLowerCase() === name.toLowerCase());
+        if (!exists) {
+          clients.push({
+            id: row.id || uid(),
+            name,
+            company:  (row.company  || '').trim(),
+            phone:    (row.phone    || '').trim(),
+            email:    (row.email    || '').trim(),
+            address:  (row.address  || '').trim(),
+            createdAt: row.createdAt || now(),
+          });
+          clientsImported++;
+        }
+      });
+      DB.set('lf_clients', clients);
+    }
+
+    // ── Import Item ──
+    if ((target === 'items' || target === 'both') && json.items?.length) {
+      json.items.forEach(row => {
+        const name = (row.name || '').trim();
+        if (!name) return;
+        const exists = itemsDB.find(i => i.name.toLowerCase() === name.toLowerCase());
+        if (!exists) {
+          const cat = (row.category || row.categories?.[0] || 'Lainnya').trim();
+          itemsDB.push({
+            id:         row.id || uid(),
+            name,
+            category:   cat,
+            categories: Array.isArray(row.categories) ? row.categories : [cat],
+            price:      parseFloat(row.price) || 0,
+            cost:       parseFloat(row.cost)  || 0,
+            desc:       (row.desc  || '').trim(),
+            unit:       (row.unit  || 'Paket').trim(),
+            createdAt:  row.createdAt || now(),
+          });
+          itemsImported++;
+        }
+      });
+      DB.set('lf_items', itemsDB);
+    }
+
+    prog.classList.remove('show');
+    const msg = [clientsImported && `${clientsImported} klien`, itemsImported && `${itemsImported} item`].filter(Boolean).join(' & ');
+    showToast(
+      msg ? `✅ Import berhasil: ${msg}` : '⚠️ Tidak ada data baru (mungkin sudah sinkron)',
+      msg ? 'success' : 'error'
+    );
+    updateBadges();
+    if (document.getElementById('page-clients').classList.contains('active')) renderClients();
+    if (document.getElementById('page-items').classList.contains('active'))   { renderItems(); renderCategoryTabs(); }
+
+  } catch(err) {
+    prog.classList.remove('show');
+    showToast('❌ Gagal mengambil data: ' + err.message, 'error');
+    console.error('importFromGSheets error:', err);
+  }
+}
+
+function parseCSV(csv) {
+  return csv.trim().split('\n').slice(1).map(line => {
+    const cells = []; let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    cells.push(cur.trim());
+    return cells;
+  }).filter(r => r.some(c => c));
+}
+
+// ── CSV OFFLINE IMPORT ──
+function importFromCSVFile(target) {
+  const prog = document.getElementById('import-csv-progress');
+  const clientFile = document.getElementById('csv-clients-file').files[0];
+  const itemFile = document.getElementById('csv-items-file').files[0];
+
+  if (target === 'clients' && !clientFile) { showToast('⚠️ Pilih file CSV klien terlebih dahulu!', 'error'); return; }
+  if (target === 'items' && !itemFile) { showToast('⚠️ Pilih file CSV item terlebih dahulu!', 'error'); return; }
+  if (target === 'both' && !clientFile && !itemFile) { showToast('⚠️ Pilih minimal satu file CSV!', 'error'); return; }
+
+  prog.classList.add('show');
+  prog.textContent = '⏳ Memproses file...';
+
+  const readFile = (file) => new Promise((resolve, reject) => {
+    if (!file) { resolve(null); return; }
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result);
+    reader.onerror = () => reject(new Error('Gagal membaca file'));
+    reader.readAsText(file, 'UTF-8');
+  });
+
+  Promise.all([
+    (target === 'clients' || target === 'both') ? readFile(clientFile) : Promise.resolve(null),
+    (target === 'items' || target === 'both') ? readFile(itemFile) : Promise.resolve(null),
+  ]).then(([clientCsv, itemCsv]) => {
+    let clientsImported = 0, itemsImported = 0;
+
+    if (clientCsv) {
+      const rows = parseCSV(clientCsv);
+      rows.forEach(row => {
+        const name = (row[0]||'').trim();
+        if (!name) return;
+        const exists = clients.find(c => c.name.toLowerCase() === name.toLowerCase());
+        if (!exists) {
+          clients.push({ id: uid(), name, company:(row[1]||'').trim(), phone:(row[2]||'').trim(), email:(row[3]||'').trim(), address:(row[4]||'').trim(), createdAt: now() });
+          clientsImported++;
+        }
+      });
+      DB.set('lf_clients', clients);
+      Cloud.push('sync_clients', clients);
+    }
+
+    if (itemCsv) {
+      const rows = parseCSV(itemCsv);
+      rows.forEach(row => {
+        const name = (row[0]||'').trim();
+        if (!name) return;
+        const price = parseFloat((row[2]||'0').replace(/[^0-9.]/g,'')) || 0;
+        const exists = itemsDB.find(i => i.name.toLowerCase() === name.toLowerCase());
+        if (!exists) {
+          const cat = (row[1]||'Lainnya').trim();
+          itemsDB.push({ id: uid(), name, category: cat, categories: [cat], price, desc:(row[3]||'').trim(), unit:(row[4]||'Paket').trim(), createdAt: now() });
+          itemsImported++;
+        }
+      });
+      DB.set('lf_items', itemsDB);
+      Cloud.push('sync_items', itemsDB);
+    }
+
+    prog.classList.remove('show');
+    // Reset file inputs
+    document.getElementById('csv-clients-file').value = '';
+    document.getElementById('csv-items-file').value = '';
+
+    const msg = [clientsImported && `${clientsImported} klien`, itemsImported && `${itemsImported} item`].filter(Boolean).join(' & ');
+    showToast(msg ? `✅ Import berhasil: ${msg}` : '⚠️ Tidak ada data baru (mungkin sudah ada / file kosong)', msg ? 'success' : 'error');
+    updateBadges();
+    // Refresh views jika sedang terbuka
+    if (document.getElementById('page-clients').classList.contains('active')) renderClients();
+    if (document.getElementById('page-items').classList.contains('active')) { renderItems(); renderCategoryTabs(); }
+  }).catch(err => {
+    prog.classList.remove('show');
+    showToast('❌ Error: ' + err.message, 'error');
+  });
+}
+
+// ── IMPORT INVOICE HISTORIS ──
+let historyParsedDocs = []; // hasil parse CSV, array of doc objects
+
+function previewHistoryCSV() {
+  const file = document.getElementById('csv-history-file').files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const csv = e.target.result;
+    historyParsedDocs = parseHistoryCSV(csv);
+    renderHistoryPreview();
+  };
+  reader.onerror = () => showToast('❌ Gagal membaca file CSV', 'error');
+  reader.readAsText(file, 'UTF-8');
+}
+
+function parseHistoryCSV(csv) {
+  // Split rows, skip header
+  const lines = csv.trim().split('\n');
+  if (lines.length < 2) return [];
+
+  // Parse semua baris mentah
+  const rows = lines.slice(1).map(line => {
+    const cells = []; let cur = '', inQ = false;
+    for (const ch of line) {
+      if (ch === '"') { inQ = !inQ; }
+      else if (ch === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+      else cur += ch;
+    }
+    cells.push(cur.trim());
+    return cells;
+  }).filter(r => r.some(c => c));
+
+  // Kolom: [0]NoDoc [1]Tipe [2]Tanggal [3]Klien [4]Perusahaan [5]Telp [6]Email [7]Alamat
+  //        [8]NamaItem [9]Qty [10]Harga [11]KetItem [12]Diskon [13]PPN [14]Catatan [15]Status
+  //        [16]Bank [17]NoRek [18]AtasNama
+
+  // Grup baris berdasarkan No. Dokumen
+  const docsMap = new Map();
+  rows.forEach(row => {
+    const number = (row[0]||'').trim();
+    if (!number) return;
+
+    if (!docsMap.has(number)) {
+      const typeRaw = (row[1]||'invoice').trim().toLowerCase();
+      const typeMap = { invoice:'invoice', quotation:'quotation', qt:'quotation', proposal:'proposal', sp:'proposal', receipt:'receipt', bp:'receipt', 'surat penawaran':'proposal', 'bukti pembayaran':'receipt' };
+      const type = typeMap[typeRaw] || 'invoice';
+
+      const statusRaw = (row[15]||'paid').trim().toLowerCase();
+      const statusMap = { paid:'paid', lunas:'paid', unpaid:'unpaid', 'belum bayar':'unpaid', 'belum dibayar':'unpaid', sent:'sent', terkirim:'sent', draft:'draft' };
+      const status = statusMap[statusRaw] || 'paid';
+
+      // Normalisasi tanggal — coba berbagai format
+      let dateVal = (row[2]||'').trim();
+      dateVal = normalizeDate(dateVal);
+
+      docsMap.set(number, {
+        id: uid(),
+        number,
+        type,
+        date: dateVal,
+        dueDate: '',
+        status,
+        clientName: (row[3]||'').trim(),
+        clientCompany: (row[4]||'').trim(),
+        clientPhone: (row[5]||'').trim(),
+        clientEmail: (row[6]||'').trim(),
+        clientAddress: (row[7]||'').trim(),
+        items: [],
+        discount: parseFloat((row[12]||'0').replace(/[^0-9.]/g,'')) || 0,
+        ppn: parseFloat((row[13]||'0').replace(/[^0-9.]/g,'')) || 0,
+        notes: (row[14]||'').trim(),
+        closing: 'Hormat kami,',
+        senderName: settings.ownerName || '',
+            senderContact: '',
+        senderAddress: settings.address || '',
+        bankName: (row[16]||settings.bankName||'').trim(),
+        bankNumber: (row[17]||settings.bankNo||'').trim(),
+        bankHolder: (row[18]||settings.bankHolder||'').trim(),
+        paymentNote: '',
+        paymentDate: '',
+        paymentMethod: 'Transfer Bank',
+        total: 0,
+        isHistorical: true,
+        createdAt: now(),
+        updatedAt: now(),
+      });
+    }
+
+    // Tambah item baris ini ke dokumen
+    const doc = docsMap.get(number);
+    const itemName = (row[8]||'').trim();
+    if (itemName) {
+      const qty = parseFloat((row[9]||'1').replace(/[^0-9.]/g,'')) || 1;
+      const price = parseFloat((row[10]||'0').replace(/[^0-9.,]/g,'').replace(',','.')) || 0;
+      doc.items.push({ name: itemName, qty, price, desc: (row[11]||'').trim(), total: qty * price });
+    }
+  });
+
+  // Hitung total setiap dokumen
+  docsMap.forEach(doc => {
+    const sub = doc.items.reduce((a, i) => a + i.total, 0);
+    const discAmt = sub * doc.discount / 100;
+    const taxAmt2 = (sub - discAmt) * (doc.taxRate || doc.ppn || 0) / 100;
+    const bearer2 = doc.taxBearer || 'client';
+    doc.total = (sub - discAmt) + (bearer2 === 'client' ? taxAmt2 : 0);
+    // Jika tidak ada item, coba ambil total dari kolom lain (fallback)
+    if (doc.items.length === 0) doc.total = 0;
+  });
+
+  return [...docsMap.values()];
+}
+
+function normalizeDate(raw) {
+  if (!raw) return today();
+  // Format ISO yyyy-mm-dd
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  // Format dd/mm/yyyy atau dd-mm-yyyy
+  const m1 = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m1) return `${m1[3]}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`;
+  // Format mm/dd/yyyy
+  const m2 = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (m2) {
+    const yr = m2[3].length === 2 ? '20' + m2[3] : m2[3];
+    return `${yr}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`;
+  }
+  // Coba native Date parse (nama bulan bahasa Inggris)
+  try {
+    const d = new Date(raw);
+    if (!isNaN(d)) return d.toISOString().split('T')[0];
+  } catch {}
+  return today();
+}
+
+function renderHistoryPreview() {
+  const wrap = document.getElementById('history-preview-wrap');
+  const tbody = document.getElementById('history-preview-body');
+  const countEl = document.getElementById('history-preview-count');
+  const subEl = document.getElementById('history-preview-sub');
+
+  if (!historyParsedDocs.length) {
+    showToast('⚠️ Tidak ada data yang bisa dibaca dari file ini', 'error');
+    wrap.style.display = 'none';
+    return;
+  }
+
+  // Tandai mana yang sudah ada di database
+  historyParsedDocs.forEach(doc => {
+    doc._exists = documents.some(d => d.number === doc.number);
+  });
+
+  const newCount = historyParsedDocs.filter(d => !d._exists).length;
+  const dupCount = historyParsedDocs.filter(d => d._exists).length;
+
+  countEl.textContent = `${historyParsedDocs.length} dokumen ditemukan`;
+  subEl.textContent = `${newCount} baru · ${dupCount} sudah ada (tidak akan diimport ulang)`;
+
+  const typeLabels = { quotation:'Quotation', proposal:'Surat Penawaran', invoice:'Invoice', receipt:'Bukti Pembayaran', mou:'MOU' };
+  const statusLabels = { draft:'Draft', sent:'Terkirim', paid:'Lunas', unpaid:'Belum Bayar' };
+  const statusBadge = { draft:'badge-draft', sent:'badge-sent', paid:'badge-paid', unpaid:'badge-unpaid' };
+
+  tbody.innerHTML = historyParsedDocs.map((doc, i) => `
+    <tr style="${doc._exists ? 'opacity:.45' : ''}">
+      <td>
+        <input type="checkbox" class="history-row-check" data-idx="${i}"
+          ${doc._exists ? 'disabled' : 'checked'}
+          style="cursor:${doc._exists ? 'not-allowed' : 'pointer'}">
+      </td>
+      <td><strong>${doc.number}</strong>${doc._exists ? '<br><small style="color:#e67e22">⚠️ Sudah ada</small>' : ''}</td>
+      <td><span class="badge-status badge-${doc.type}">${typeLabels[doc.type]||doc.type}</span></td>
+      <td style="white-space:nowrap">${fmtDate(doc.date)||doc.date||'-'}</td>
+      <td>${doc.clientName||'-'}${doc.clientCompany?`<br><small style="color:var(--mid)">${doc.clientCompany}</small>`:''}</td>
+      <td style="white-space:nowrap;font-weight:600">${fmtRp(doc.total)}</td>
+      <td><span class="badge-status ${statusBadge[doc.status]||'badge-draft'}">${statusLabels[doc.status]||doc.status}</span></td>
+      <td style="font-size:11px;color:var(--mid)">${doc.items.length} item</td>
+      <td style="font-size:11px;color:var(--mid);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${doc.items.map(i=>i.name).join(', ')||'-'}</td>
+    </tr>`).join('');
+
+  wrap.style.display = 'block';
+  document.getElementById('import-history-progress').classList.remove('show');
+}
+
+function toggleSelectAllHistory(forceState) {
+  const checks = document.querySelectorAll('.history-row-check:not(:disabled)');
+  const masterCheck = document.getElementById('history-check-all');
+  const newState = forceState !== undefined ? forceState : !([...checks].every(c => c.checked));
+  checks.forEach(c => c.checked = newState);
+  if (masterCheck) masterCheck.checked = newState;
+}
+
+function confirmImportHistory() {
+  const checks = document.querySelectorAll('.history-row-check:not(:disabled)');
+  const selectedIndices = [...checks].filter(c => c.checked).map(c => parseInt(c.dataset.idx));
+
+  if (!selectedIndices.length) { showToast('⚠️ Pilih minimal satu dokumen untuk diimport!', 'error'); return; }
+
+  const prog = document.getElementById('import-history-progress');
+  prog.classList.add('show');
+  prog.textContent = `⏳ Mengimport ${selectedIndices.length} dokumen...`;
+
+  let imported = 0;
+  selectedIndices.forEach(idx => {
+    const doc = historyParsedDocs[idx];
+    if (!doc || doc._exists) return;
+    documents.push(doc);
+    // Auto-save klien
+    if (doc.clientName && !clients.find(c => c.name.toLowerCase() === doc.clientName.toLowerCase())) {
+      clients.push({ id: uid(), name: doc.clientName, company: doc.clientCompany, phone: doc.clientPhone, email: doc.clientEmail, address: doc.clientAddress, createdAt: now() });
+    }
+    imported++;
+  });
+
+  // Sort dokumen berdasarkan tanggal (terbaru dulu)
+  documents.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  DB.set('lf_docs', documents);
+  DB.set('lf_clients', clients);
+  Cloud.push('sync_docs', documents);
+  Cloud.push('sync_clients', clients);
+  updateBadges();
+
+  prog.classList.remove('show');
+  showToast(`✅ ${imported} dokumen historis berhasil diimport!`, 'success');
+
+  // Reset
+  document.getElementById('csv-history-file').value = '';
+  document.getElementById('history-preview-wrap').style.display = 'none';
+  historyParsedDocs = [];
+
+  // Refresh dashboard kalau sedang di sana
+  renderPipeline();
+}
+
+function downloadHistoryTemplate() {
+  const header = 'No. Dokumen,Tipe,Tanggal,Klien,Perusahaan,Telepon,Email,Alamat Klien,Nama Item,Qty,Harga Satuan,Keterangan Item,Diskon(%),PPN(%),Catatan,Status,Bank,No. Rekening,Atas Nama';
+  const examples = [
+    'INV/2025/01/001,invoice,2025-01-15,Budi Santoso,PT Maju Jaya,081234567890,budi@majujaya.com,"Jl. Sudirman No. 1 Jakarta",Fotografi Corporate,1,3500000,Full Day Photographer,0,0,Terima kasih atas kepercayaannya,paid,BCA,1234567890,Abdul Latif',
+    'INV/2025/01/001,invoice,2025-01-15,Budi Santoso,PT Maju Jaya,081234567890,budi@majujaya.com,"Jl. Sudirman No. 1 Jakarta",Editing & Retouching,1,1500000,50 foto final,0,0,Terima kasih atas kepercayaannya,paid,BCA,1234567890,Abdul Latif',
+    'INV/2025/02/001,invoice,2025-02-20,Siti Rahayu,CV Kreasi Mandiri,089876543210,siti@kreasi.com,"Jl. Gatot Subroto No. 5",Videografi Event,1,5000000,Wedding Video Highlight,0,11,DP sudah diterima,paid,BCA,1234567890,Abdul Latif',
+    'QT/2025/03/001,quotation,2025-03-05,Andi Wijaya,Bank Nusantara,082111222333,,,"Fotografi Annual Report",2,4000000,Per hari shooting,10,0,Penawaran berlaku 7 hari,sent,,,',
+  ];
+  const csv = [header, ...examples].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'template_import_historis_Kala Project.csv';
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+  showToast('📥 Template CSV berhasil didownload!', 'success');
+}
+let dragSrcIdx = null;
+
+function addItemRow(data = {}) {
+  const list = document.getElementById('items-card-list');
+  const idx = list.children.length;
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.dataset.idx = idx;
+  card.draggable = true;
+  card.innerHTML = `
+    <div class="item-card-header">
+      <span class="drag-handle" title="Drag untuk mengubah urutan">⠿</span>
+      <div class="autocomplete-wrap" style="flex:1">
+        <input type="text" placeholder="Nama item / layanan..." value="${esc(data.name||'')}"
+          oninput="onItemNameInput(this,${idx})" onblur="autoSaveItemToDB(this)"
+          autocomplete="off" data-field="name" style="width:100%">
+        <div class="autocomplete-list item-autocomplete" id="item-ac-${idx}" style="display:none"></div>
+      </div>
+      <button class="item-remove-btn" onclick="removeItemCard(this)" title="Hapus item">✕</button>
+    </div>
+    <div class="item-card-fields">
+      <div class="form-group" style="margin:0">
+        <label>Qty</label>
+        <input type="number" value="${data.qty||1}" min="1" data-field="qty" oninput="updateTotals()" style="text-align:center">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>Harga Jual (Rp)</label>
+        <input type="number" value="${data.price||''}" min="0" data-field="price" oninput="updateTotals()" placeholder="0">
+      </div>
+      <div class="form-group" style="margin:0">
+        <label>HPP/Modal (Rp) <span style="font-size:10px;color:var(--mid)">opsional</span></label>
+        <input type="number" value="${data.cost||''}" min="0" data-field="cost" oninput="updateTotals()" placeholder="0">
+      </div>
+    </div>
+    <div class="item-card-desc">
+      <label style="font-size:11px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:var(--mid)">Keterangan (opsional)</label>
+      <textarea placeholder="Cth: Photographer, editing, cetak 4R..." data-field="desc" rows="2" style="margin-top:4px">${esc(data.desc||'')}</textarea>
+    </div>
+    <div style="text-align:right;font-size:12px;color:var(--gold);font-weight:600;margin-top:6px" data-field="row-total">
+      ${data.qty && data.price ? fmtRp((data.qty||1)*(data.price||0)) : ''}
+    </div>
+  `;
+  // Drag events
+  card.addEventListener('dragstart', onDragStart);
+  card.addEventListener('dragover', onDragOver);
+  card.addEventListener('dragend', onDragEnd);
+  card.addEventListener('drop', onDrop);
+  // Touch drag (mobile)
+  addTouchDrag(card);
+  list.appendChild(card);
+  updateTotals();
+}
+
+function removeItemCard(btn) {
+  btn.closest('.item-card').remove();
+  reindexCards();
+  updateTotals();
+}
+
+function reindexCards() {
+  document.querySelectorAll('#items-card-list .item-card').forEach((card, i) => {
+    card.dataset.idx = i;
+    const ac = card.querySelector('.item-autocomplete');
+    if (ac) ac.id = 'item-ac-' + i;
+    const nameInput = card.querySelector('[data-field=name]');
+    if (nameInput) {
+      nameInput.setAttribute('oninput', `onItemNameInput(this,${i})`);
+      nameInput.setAttribute('onblur', `autoSaveItemToDB(this)`);
+    }
+  });
+}
+
+function getItemRows() {
+  const rows = [];
+  document.querySelectorAll('#items-card-list .item-card').forEach(card => {
+    const name  = card.querySelector('[data-field=name]').value.trim();
+    const desc  = card.querySelector('[data-field=desc]').value.trim();
+    const qty   = parseFloat(card.querySelector('[data-field=qty]').value) || 1;
+    const price = parseFloat(card.querySelector('[data-field=price]').value) || 0;
+    const costEl = card.querySelector('[data-field=cost]');
+    const cost  = costEl ? (parseFloat(costEl.value) || 0) : 0;
+    rows.push({ name, desc, qty, price, cost, total: qty * price, margin: price > 0 ? ((price - cost) / price * 100) : 0 });
+  });
+  return rows;
+}
+
+// ── DRAG & DROP (mouse) ──
+function onDragStart(e) {
+  dragSrcIdx = this.dataset.idx;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onDragOver(e) {
+  e.preventDefault();
+  document.querySelectorAll('.item-card').forEach(c => c.classList.remove('drag-over'));
+  if (this.dataset.idx !== dragSrcIdx) this.classList.add('drag-over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  if (this.dataset.idx === dragSrcIdx) return;
+  const list = document.getElementById('items-card-list');
+  const cards = [...list.querySelectorAll('.item-card')];
+  const src = cards.find(c => c.dataset.idx == dragSrcIdx);
+  const target = this;
+  const targetIdx = parseInt(target.dataset.idx);
+  const srcIdx = parseInt(dragSrcIdx);
+  if (srcIdx < targetIdx) list.insertBefore(src, target.nextSibling);
+  else list.insertBefore(src, target);
+  reindexCards();
+  updateTotals();
+}
+function onDragEnd() {
+  this.classList.remove('dragging');
+  document.querySelectorAll('.item-card').forEach(c => c.classList.remove('drag-over'));
+  dragSrcIdx = null;
+}
+
+// ── TOUCH DRAG (mobile) ──
+function addTouchDrag(card) {
+  let startY, startEl, placeholder;
+  card.querySelector('.drag-handle').addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startEl = card;
+    card.style.opacity = '.5';
+    placeholder = document.createElement('div');
+    placeholder.style.cssText = 'height:' + card.offsetHeight + 'px;background:#fffbea;border:2px dashed var(--gold);border-radius:8px;margin-bottom:10px';
+    e.preventDefault();
+  }, { passive: false });
+  card.querySelector('.drag-handle').addEventListener('touchmove', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const list = document.getElementById('items-card-list');
+    const cards = [...list.querySelectorAll('.item-card:not(.dragging-touch)')];
+    startEl.classList.add('dragging-touch');
+    list.insertBefore(placeholder, startEl);
+    for (const c of cards) {
+      const rect = c.getBoundingClientRect();
+      if (touch.clientY < rect.top + rect.height / 2 && c !== startEl) {
+        list.insertBefore(placeholder, c);
+        break;
+      }
+    }
+  }, { passive: false });
+  card.querySelector('.drag-handle').addEventListener('touchend', e => {
+    card.style.opacity = '';
+    startEl.classList.remove('dragging-touch');
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(startEl, placeholder);
+      placeholder.remove();
+    }
+    reindexCards();
+    updateTotals();
+  });
+}
+
+function onTaxTypeChange() {
+  const type = document.getElementById('tax-type').value;
+  const wrap = document.getElementById('tax-detail-wrap');
+  const rateInput = document.getElementById('tax-rate-input');
+  const rateLabel = document.getElementById('tax-rate-label');
+
+  if (type === 'none') { wrap.style.display = 'none'; updateTotals(); return; }
+  wrap.style.display = 'block';
+
+  // Set tarif default per jenis
+  const defaults = { ppn: 11, pph23: 2, pph21: 5, custom: 0 };
+  rateInput.value = defaults[type] ?? 0;
+
+  const labels = { ppn: 'Tarif PPN (%)', pph23: 'Tarif PPh 23 (%)', pph21: 'Tarif PPh 21 (%)', custom: 'Tarif Pajak (%)' };
+  rateLabel.textContent = labels[type] || 'Tarif (%)';
+
+  // Default bearer per jenis pajak
+  const bearerEl = document.getElementById('tax-bearer');
+  if (type === 'ppn')   bearerEl.value = 'client'; // PPN biasa ditambah ke klien
+  if (type === 'pph23') bearerEl.value = 'us';      // PPh 23 dipotong dari kita
+  if (type === 'pph21') bearerEl.value = 'us';
+  if (type === 'custom') bearerEl.value = 'client';
+
+  updateTotals();
+}
+
+function updateTotals() {
+  const items = getItemRows();
+  const sub = items.reduce((a, i) => a + i.total, 0);
+  const discVal  = parseFloat(document.getElementById('discount-input').value) || 0;
+  const discMode = document.getElementById('discount-mode') ? document.getElementById('discount-mode').value : 'pct';
+  const discAmt  = discMode === 'nominal' ? Math.min(discVal, sub) : sub * discVal / 100;
+  const discPct  = sub > 0 ? (discAmt / sub * 100) : 0;
+  const afterDisc = sub - discAmt;
+  const disc = discPct; // untuk kompatibilitas
+
+  // Hint diskon
+  const hint = document.getElementById('discount-hint');
+  if (hint) {
+    if (discMode === 'nominal' && discVal > 0) hint.textContent = `= ${discPct.toFixed(1)}% dari subtotal`;
+    else if (discMode === 'pct' && discVal > 0) hint.textContent = `= ${fmtRp(discAmt)}`;
+    else hint.textContent = '';
+  }
+
+  // Margin summary
+  const totalCost = items.reduce((a,i) => a + (i.cost||0) * i.qty, 0);
+  const grossMargin = sub > 0 ? ((sub - totalCost) / sub * 100) : 0;
+  const marginEl = document.getElementById('doc-margin-display');
+  if (marginEl && totalCost > 0) {
+    marginEl.style.display = 'flex';
+    document.getElementById('doc-margin-pct').textContent = grossMargin.toFixed(1) + '%';
+    document.getElementById('doc-margin-amt').textContent = fmtRp(sub - totalCost);
+    document.getElementById('doc-margin-pct').style.color = grossMargin > 50 ? '#4caf50' : grossMargin > 20 ? '#ff9800' : '#f44336';
+  } else if (marginEl) {
+    marginEl.style.display = 'none';
+  }
+
+  const taxType   = document.getElementById('tax-type').value;
+  const taxRate   = taxType !== 'none' ? (parseFloat(document.getElementById('tax-rate-input').value) || 0) : 0;
+  const taxBearer = taxType !== 'none' ? document.getElementById('tax-bearer').value : 'client';
+
+  let taxAmt = 0, totalTagihan = afterDisc, netDiterima = afterDisc;
+
+  if (taxType !== 'none' && taxRate > 0) {
+    taxAmt = afterDisc * taxRate / 100;
+    if (taxBearer === 'client') {
+      // PPN: tax ditambah ke tagihan, kita terima penuh
+      totalTagihan = afterDisc + taxAmt;
+      netDiterima  = afterDisc; // sebelum setor ke negara
+    } else {
+      // PPh 23/21: dipotong dari tagihan, kita terima lebih kecil
+      totalTagihan = afterDisc;       // tagihan ke klien tetap
+      netDiterima  = afterDisc - taxAmt; // yang kita terima setelah potong pajak
+    }
+  }
+
+  // Update display
+  const el = id => document.getElementById(id);
+  el('subtotal-display').textContent   = fmtRp(sub);
+  el('discount-display').textContent   = '- ' + fmtRp(discAmt);
+  el('discount-row').style.display     = disc > 0 ? 'flex' : 'none';
+  el('total-display').textContent      = fmtRp(totalTagihan);
+
+  // Tax row
+  if (taxType !== 'none' && taxRate > 0) {
+    const taxLabels = { ppn:'PPN', pph23:'PPh 23', pph21:'PPh 21', custom:'Pajak' };
+    const taxLabel  = taxLabels[taxType] || 'Pajak';
+    el('tax-row').style.display = 'flex';
+    el('tax-row-label').textContent = taxBearer === 'client'
+      ? `+ ${taxLabel} ${taxRate}% (ditanggung klien)`
+      : `- ${taxLabel} ${taxRate}% (dipotong)`;
+    el('tax-display').textContent = (taxBearer === 'client' ? '+ ' : '- ') + fmtRp(taxAmt);
+    el('tax-display').style.color = taxBearer === 'client' ? '#e67e22' : '#f44336';
+
+    // Net row (hanya kalau bearer = kita)
+    if (taxBearer === 'us') {
+      el('tax-net-row').style.display = 'flex';
+      el('tax-net-label').textContent = 'Diterima bersih (setelah pajak)';
+      el('tax-net-display').textContent = fmtRp(netDiterima);
+    } else {
+      el('tax-net-row').style.display = 'none';
+    }
+
+    // Info box
+    const infoMap = {
+      ppn:    `PPN ${taxRate}% ditambahkan ke tagihan. Klien membayar ${fmtRp(totalTagihan)}, kamu setor ${fmtRp(taxAmt)} ke negara.`,
+      pph23:  `PPh 23 ${taxRate}% dipotong klien dari pembayaran. Klien transfer ${fmtRp(netDiterima)}, kamu terima ${fmtRp(netDiterima)}.`,
+      pph21:  `PPh 21 ${taxRate}% dipotong dari honorarium. Kamu menerima ${fmtRp(netDiterima)} setelah pajak.`,
+      custom: taxBearer === 'client' ? `Pajak ${taxRate}% ditanggung klien, total tagihan ${fmtRp(totalTagihan)}.` : `Pajak ${taxRate}% ditanggung kamu, diterima bersih ${fmtRp(netDiterima)}.`,
+    };
+    el('tax-info-box').textContent = infoMap[taxType] || '';
+  } else {
+    el('tax-row').style.display     = 'none';
+    el('tax-net-row').style.display = 'none';
+    if (el('tax-info-box')) el('tax-info-box').textContent = '';
+  }
+
+  // Update per-card row total
+  document.querySelectorAll('#items-card-list .item-card').forEach(card => {
+    const qty   = parseFloat(card.querySelector('[data-field=qty]').value) || 1;
+    const price = parseFloat(card.querySelector('[data-field=price]').value) || 0;
+    const rt    = card.querySelector('[data-field=row-total]');
+    if (rt) rt.textContent = price > 0 ? fmtRp(qty * price) : '';
+  });
+}
+
+// ── ITEM AUTOCOMPLETE (in form) ──
+function onItemNameInput(input, idx) {
+  const val = input.value.toLowerCase();
+  const list = document.getElementById('item-ac-' + idx);
+  if (!val) { if(list) list.style.display = 'none'; return; }
+  const matches = itemsDB.filter(i => i.name.toLowerCase().includes(val));
+  if (!matches.length || !list) { if(list) list.style.display = 'none'; return; }
+  list.innerHTML = matches.slice(0, 8).map(i => `
+    <div class="autocomplete-item" onmousedown="selectItemFromCard(event,${idx},'${esc(i.name)}',${i.price},'${esc(i.desc||'')}')">
+      <span>${i.name}</span><span class="price">${fmtRp(i.price)}</span>
+    </div>`).join('');
+  list.style.display = 'block';
+}
+
+function selectItemFromCard(e, idx, name, price, desc) {
+  e.preventDefault();
+  const card = document.querySelector(`#items-card-list .item-card[data-idx="${idx}"]`);
+  if (!card) return;
+  card.querySelector('[data-field=name]').value = name;
+  card.querySelector('[data-field=desc]').value = desc;
+  card.querySelector('[data-field=price]').value = price;
+  const list = document.getElementById('item-ac-' + idx);
+  if (list) list.style.display = 'none';
+  updateTotals();
+}
+
+function autoSaveItemToDB(input) {
+  const card = input.closest('.item-card');
+  if (!card) return;
+  const name = card.querySelector('[data-field=name]').value.trim();
+  const price = parseFloat(card.querySelector('[data-field=price]').value) || 0;
+  const desc = card.querySelector('[data-field=desc]').value.trim();
+  if (!name || price === 0) return;
+  const exists = itemsDB.find(i => i.name.toLowerCase() === name.toLowerCase());
+  if (!exists) {
+    const costEl = card.querySelector('[data-field=cost]');
+    const cost = costEl ? (parseFloat(costEl.value)||0) : 0;
+    itemsDB.push({ id: uid(), name, price, cost, desc, unit: 'Paket', category: 'Lainnya', categories: ['Lainnya'], createdAt: now() });
+    DB.set('lf_items', itemsDB);
+    Cloud.push('sync_items', itemsDB);
+    showToast('✅ Item "' + name + '" disimpan ke database!', 'success');
+  }
+}
+
+// ── CLIENT AUTOCOMPLETE ──
+function onClientInput() {
+  const val = document.getElementById('client-name').value.toLowerCase();
+  const list = document.getElementById('client-autocomplete');
+  if (!val) { list.style.display = 'none'; return; }
+  const matches = clients.filter(c => c.name.toLowerCase().includes(val) || (c.company||'').toLowerCase().includes(val));
+  if (!matches.length) { list.style.display = 'none'; return; }
+  list.innerHTML = matches.slice(0, 6).map(c => `
+    <div class="autocomplete-item" onclick="selectClient('${c.id}')">
+      <span>${c.name} ${c.company ? '· ' + c.company : ''}</span>
+    </div>`).join('');
+  list.style.display = 'block';
+}
+
+function selectClient(id) {
+  const c = clients.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('client-name').value = c.name;
+  document.getElementById('client-company').value = c.company || '';
+  document.getElementById('client-phone').value = c.phone || '';
+  document.getElementById('client-email').value = c.email || '';
+  document.getElementById('client-address').value = c.address || '';
+  document.getElementById('client-autocomplete').style.display = 'none';
+}
+
+// ── BRANDING ──
+function setBrandMode(mode, btn) {
+  settings.brandMode = mode;
+  DB.set('lf_settings', settings);
+  document.querySelectorAll('[id^=brand-toggle-]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateSettingsBrandPreview();
+}
+
+function handleLogoUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('⚠️ File terlalu besar! Maks. 2MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    logoDataUrl = ev.target.result;
+    DB.set('lf_logo', logoDataUrl);
+    const prev = document.getElementById('s-logo-preview');
+    const ph = document.getElementById('s-logo-placeholder');
+    if (prev) { prev.src = logoDataUrl; prev.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+    updateSettingsBrandPreview();
+    showToast('✅ Logo berhasil disimpan!', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeLogo() {
+  if (!confirm('Hapus logo?')) return;
+  logoDataUrl = null; DB.set('lf_logo', null);
+  const prev = document.getElementById('s-logo-preview');
+  const ph = document.getElementById('s-logo-placeholder');
+  if (prev) prev.style.display = 'none';
+  if (ph) ph.style.display = 'block';
+  updateSettingsBrandPreview();
+  showToast('🗑️ Logo dihapus', 'success');
+}
+
+function handleSignatureUpload(e) {
+  const file = e.target.files[0]; if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('⚠️ File terlalu besar! Maks. 2MB', 'error'); return; }
+  const reader = new FileReader();
+  reader.onload = ev => {
+    signatureDataUrl = ev.target.result;
+    DB.set('lf_signature', signatureDataUrl);
+    Cloud.push('sync_signature', signatureDataUrl);
+    const prev = document.getElementById('s-signature-preview');
+    const ph = document.getElementById('s-signature-placeholder');
+    if (prev) { prev.src = signatureDataUrl; prev.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+    showToast('✅ Tanda tangan berhasil disimpan!', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeSignature() {
+  if (!confirm('Hapus tanda tangan?')) return;
+  signatureDataUrl = null; DB.set('lf_signature', null);
+  Cloud.push('sync_signature', null);
+  const prev = document.getElementById('s-signature-preview');
+  const ph = document.getElementById('s-signature-placeholder');
+  if (prev) prev.style.display = 'none';
+  if (ph) ph.style.display = 'block';
+  showToast('🗑️ Tanda tangan dihapus', 'success');
+}
+
+function updateSettingsBrandPreview() {
+  const el = document.getElementById('s-brand-preview');
+  if (!el) return;
+  const mode = settings.brandMode || 'both';
+  const name = settings.brandName || 'Kala Project';
+  const sub = settings.brandSub || '';
+  let html = '';
+  if ((mode === 'both' || mode === 'logo') && logoDataUrl) {
+    html += `<img src="${logoDataUrl}" style="max-height:40px;max-width:120px;object-fit:contain">`;
+  }
+  if (mode === 'both' || mode === 'name') {
+    html += `<div><div style="font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:#1a1a1a">${name}</div>${sub?`<div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#888">${sub}</div>`:''}</div>`;
+  }
+  if (!html) html = '<span style="color:#ccc;font-size:12px">Pilih tampilan di atas</span>';
+  el.innerHTML = html;
+}
+
+function updateItemMarginPreview() {
+  const price = parseFloat(document.getElementById('m-item-price').value) || 0;
+  const cost  = parseFloat(document.getElementById('m-item-cost').value)  || 0;
+  const el    = document.getElementById('m-item-margin-preview');
+  if (!el) return;
+  if (!price || !cost) { el.textContent = '—'; el.style.color = '#aaa'; return; }
+  const margin = (price - cost) / price * 100;
+  const profit = price - cost;
+  el.textContent = `${margin.toFixed(1)}% · +${fmtRp(profit)}`;
+  el.style.color = margin > 50 ? '#2e7d32' : margin > 20 ? '#e65100' : '#c62828';
+}
+// ── TEMPLATE MOU / PERJANJIAN KERJASAMA ──
+function buildMouTemplate(d) {
+  const itemListHtml = (d.items || []).filter(i => i.name).map((item, n) => `
+    <div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px dashed #e5e5e5">
+      <div style="width:22px;font-weight:600;color:#888">${n+1}.</div>
+      <div style="flex:1">
+        <div style="font-weight:500">${item.name}${item.qty > 1 ? ` <span style="color:#999;font-weight:400">(Qty: ${item.qty})</span>` : ''}</div>
+        ${item.desc ? `<div style="font-size:8.5pt;color:#999;margin-top:2px;line-height:1.4">${item.desc.replace(/\n/g,'<br>')}</div>` : ''}
+      </div>
+      <div style="text-align:right;font-size:9.5pt;color:#555">${fmtRp(item.total)}</div>
+    </div>`).join('') || `<div style="color:#ccc;text-align:center;padding:16px;font-size:9pt">Belum ada item</div>`;
+
+  const senderLabel = d.senderName || d.brandName;
+
+  return `
+<div class="p1" style="font-family:'Inter',sans-serif;font-size:10pt;color:#1a1a1a;padding:16mm 18mm 12mm;min-height:277mm;position:relative;background:#fff">
+
+  <div style="text-align:center;margin-bottom:6mm">
+    <div style="font-size:18pt;font-weight:800;color:${d.accentColor};letter-spacing:1px">SURAT PERJANJIAN KERJASAMA</div>
+    <div style="font-size:9pt;color:#888;margin-top:4px">No: ${d.docNum} &nbsp;·&nbsp; Tanggal: ${d.docDate}</div>
+  </div>
+
+  <div style="font-size:9.5pt;line-height:1.7;margin-bottom:6mm">
+    Pada hari ini, <b>${d.docDate}</b>, kedua belah pihak yang bertanda tangan di bawah ini telah sepakat untuk mengikatkan diri dalam perjanjian kerjasama dengan ketentuan sebagaimana diatur dalam pasal-pasal berikut:
+  </div>
+
+  <div style="display:flex;gap:14px;margin-bottom:6mm">
+    <div style="flex:1;background:#FAFAF8;border:1px solid #eee;border-radius:8px;padding:10px 12px">
+      <div style="font-size:8pt;font-weight:700;color:${d.accentColor};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Pihak Pertama</div>
+      <div style="font-weight:700;font-size:10pt">${senderLabel}</div>
+      ${d.senderPosition ? `<div style="font-size:8.5pt;color:#888">${d.senderPosition}</div>` : ''}
+      ${d.senderAddress ? `<div style="font-size:8.5pt;color:#666;margin-top:4px;line-height:1.5">${d.senderAddress}</div>` : ''}
+      <div style="font-size:8pt;color:#aaa;margin-top:6px">Selanjutnya disebut "PIHAK PERTAMA"</div>
+    </div>
+    <div style="flex:1;background:#FAFAF8;border:1px solid #eee;border-radius:8px;padding:10px 12px">
+      <div style="font-size:8pt;font-weight:700;color:${d.accentColor};text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Pihak Kedua</div>
+      <div style="font-weight:700;font-size:10pt">${d.clientName}</div>
+      ${d.clientCompany ? `<div style="font-size:8.5pt;color:#888">${d.clientCompany}</div>` : ''}
+      ${d.clientAddress ? `<div style="font-size:8.5pt;color:#666;margin-top:4px;line-height:1.5">${d.clientAddress}</div>` : ''}
+      <div style="font-size:8pt;color:#aaa;margin-top:6px">Selanjutnya disebut "PIHAK KEDUA"</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:5mm">
+    <div style="font-weight:700;font-size:9.5pt;margin-bottom:6px">PASAL 1 — RUANG LINGKUP PEKERJAAN</div>
+    <div style="font-size:9.5pt;line-height:1.6;margin-bottom:6px">PIHAK PERTAMA akan melaksanakan pekerjaan berikut untuk PIHAK KEDUA:</div>
+    ${itemListHtml}
+  </div>
+
+  <div style="margin-bottom:5mm">
+    <div style="font-weight:700;font-size:9.5pt;margin-bottom:6px">PASAL 2 — NILAI KONTRAK & SKEMA PEMBAYARAN</div>
+    <div style="font-size:9.5pt;line-height:1.7">
+      Total nilai kerjasama ini adalah sebesar <b>${fmtRp(d.total)}</b>, dengan skema pembayaran sebagai berikut:
+      <div style="margin:6px 0 0 4px">
+        • Uang Muka (DP): <b>____%</b> dari nilai kontrak, dibayarkan pada saat penandatanganan perjanjian ini<br>
+        • Pelunasan: <b>____%</b> sisanya, dibayarkan paling lambat pada saat hasil pekerjaan diserahkan
+      </div>
+      <div style="font-size:8pt;color:#999;margin-top:6px">*Persentase skema pembayaran mohon diisi manual sebelum dokumen ditandatangani.</div>
+    </div>
+  </div>
+
+  <div style="margin-bottom:5mm">
+    <div style="font-weight:700;font-size:9.5pt;margin-bottom:6px">PASAL 3 — JANGKA WAKTU PELAKSANAAN</div>
+    <div style="font-size:9.5pt;line-height:1.7">Pekerjaan sebagaimana dimaksud dalam Pasal 1 akan diselesaikan paling lambat pada <b>${d.dueDate || '(tanggal menyusul kesepakatan)'}</b>, kecuali terjadi hal-hal di luar kendali kedua belah pihak (force majeure).</div>
+  </div>
+
+  <div style="margin-bottom:5mm">
+    <div style="font-weight:700;font-size:9.5pt;margin-bottom:6px">PASAL 4 — HAK & KEWAJIBAN PARA PIHAK</div>
+    <div style="font-size:9.5pt;line-height:1.7">
+      PIHAK PERTAMA berkewajiban melaksanakan pekerjaan sesuai ruang lingkup yang disepakati dengan penuh tanggung jawab dan profesionalisme. PIHAK KEDUA berkewajiban memberikan informasi, akses, dan pembayaran yang diperlukan sesuai jadwal yang disepakati agar pekerjaan dapat berjalan lancar.
+    </div>
+  </div>
+
+  <div style="margin-bottom:5mm">
+    <div style="font-weight:700;font-size:9.5pt;margin-bottom:6px">PASAL 5 — PEMBATALAN</div>
+    <div style="font-size:9.5pt;line-height:1.7">
+      Apabila PIHAK KEDUA membatalkan perjanjian ini setelah Uang Muka (DP) dibayarkan, maka Uang Muka tersebut tidak dapat dikembalikan (non-refundable), kecuali disepakati lain secara tertulis oleh kedua belah pihak.
+    </div>
+  </div>
+
+  ${d.notes ? `<div style="margin-bottom:5mm">
+    <div style="font-weight:700;font-size:9.5pt;margin-bottom:6px">PASAL 6 — CATATAN TAMBAHAN</div>
+    <div style="font-size:9.5pt;line-height:1.7;white-space:pre-line">${d.notes}</div>
+  </div>` : ''}
+
+  <div style="font-size:9.5pt;line-height:1.7;margin:6mm 0">
+    Demikian Surat Perjanjian Kerjasama ini dibuat dan disepakati oleh kedua belah pihak dalam keadaan sadar dan tanpa paksaan dari pihak manapun, untuk dipergunakan sebagaimana mestinya.
+  </div>
+
+  <div style="display:flex;justify-content:space-between;margin-top:14mm;gap:20px">
+    <div style="text-align:center;flex:1">
+      <div style="font-size:9pt;color:#999;margin-bottom:${signatureDataUrl ? '4px' : '48px'}">PIHAK PERTAMA</div>
+      ${signatureDataUrl ? `<img src="${signatureDataUrl}" style="max-height:56px;max-width:160px;object-fit:contain;margin:0 auto 2px;display:block">` : ''}
+      <div style="border-top:1px solid #ccc;padding-top:4px;margin-top:2px">
+        <div style="font-weight:700;font-size:10pt">${senderLabel}</div>
+      </div>
+    </div>
+    <div style="text-align:center;flex:1">
+      <div style="font-size:9pt;color:#999;margin-bottom:48px">PIHAK KEDUA</div>
+      <div style="border-top:1px solid #ccc;padding-top:4px;margin-top:2px">
+        <div style="font-weight:700;font-size:10pt">${d.clientName}</div>
+      </div>
+    </div>
+  </div>
+
+</div>`;
+}
+
+function updatePreview() {
+  const type = document.getElementById('doc-type-select').value;
+  const brandName = settings.brandName || 'Kala Project';
+  const brandSub  = settings.brandSub  || '';
+  const brandModeActive = settings.brandMode || 'both';
+  const accentColor = settings.accentColor || '#1a1a1a';
+  const docNum    = document.getElementById('doc-number').value || '-';
+  const docDate   = fmtDate(document.getElementById('doc-date').value);
+  const dueDate   = fmtDate(document.getElementById('doc-due-date').value);
+  const perihal   = document.getElementById('doc-notes').value.split('\n')[0] || '';
+  const clientName    = document.getElementById('client-name').value    || '-';
+  const clientCompany = document.getElementById('client-company').value || '';
+  const clientPhone   = document.getElementById('client-phone').value   || '';
+  const clientEmail   = document.getElementById('client-email').value   || '';
+  const clientAddress = document.getElementById('client-address').value || '';
+  const notes         = document.getElementById('doc-notes').value;
+  const closing       = document.getElementById('doc-closing').value;
+  const senderName    = document.getElementById('sender-name').value;
+  const senderPosition = document.getElementById('sender-position') ? document.getElementById('sender-position').value : '';
+  const senderAddress = document.getElementById('sender-address').value;
+  const bankName  = document.getElementById('bank-name').value;
+  const bankNo    = document.getElementById('bank-number').value;
+  const bankHolder = document.getElementById('bank-holder').value;
+  const paymentNote   = document.getElementById('payment-note').value;
+  const paymentDate   = fmtDate(document.getElementById('payment-date').value);
+  const paymentMethod = document.getElementById('payment-method').value;
+
+  const items    = getItemRows();
+  const disc     = parseFloat(document.getElementById('discount-input').value) || 0;
+  const taxType  = document.getElementById('tax-type').value;
+  const taxRate  = taxType !== 'none' ? (parseFloat(document.getElementById('tax-rate-input').value) || 0) : 0;
+  const taxBearer = taxType !== 'none' ? document.getElementById('tax-bearer').value : 'client';
+  const sub      = items.reduce((a,i)=>a+i.total,0);
+  const discAmt  = sub * disc / 100;
+  const afterDisc = sub - discAmt;
+  const taxAmt   = afterDisc * taxRate / 100;
+  const total    = taxType !== 'none' && taxBearer === 'client' ? afterDisc + taxAmt : afterDisc;
+  const netAmt   = taxType !== 'none' && taxBearer === 'us' ? afterDisc - taxAmt : total;
+  const taxLabels = { ppn:'PPN', pph23:'PPh 23', pph21:'PPh 21', custom:'Pajak' };
+  const taxLabel  = taxLabels[taxType] || 'Pajak';
+
+  const typeLabels = { quotation:'QUOTATION', proposal:'SURAT PENAWARAN', invoice:'INVOICE', receipt:'BUKTI PEMBAYARAN', mou:'MOU / PERJANJIAN KERJASAMA' };
+  const typeLabel  = typeLabels[type] || type.toUpperCase();
+
+  // ── MOU: template terpisah (dokumen legal, bukan invoice/quotation) ──
+  if (type === 'mou') {
+    document.getElementById('print-doc').innerHTML = buildMouTemplate({
+      accentColor, brandName, docNum, docDate, dueDate,
+      clientName, clientCompany, clientAddress, clientPhone,
+      notes, senderName, senderPosition, senderAddress,
+      items, total,
+    });
+    return;
+  }
+
+  // ── SENDER BLOCK (kanan atas) ──
+  let senderBlock = '';
+  if (brandModeActive === 'both' || brandModeActive === 'logo') {
+    if (logoDataUrl) senderBlock += `<img src="${logoDataUrl}" style="max-height:56px;max-width:180px;object-fit:contain;display:block;margin-bottom:8px">`;
+  }
+  if (brandModeActive === 'both' || brandModeActive === 'name') {
+    senderBlock += `<div style="font-size:11pt;font-weight:700;color:#1a1a1a">${brandName}</div>`;
+    if (brandSub) senderBlock += `<div style="font-size:8pt;color:#888;letter-spacing:1px">${brandSub}</div>`;
+  }
+  if (senderAddress) senderBlock += `<div style="font-size:8.5pt;color:#666;margin-top:4px;line-height:1.5">${senderAddress}</div>`;
+  if (senderName)    senderBlock += `<div style="font-size:8.5pt;color:#666">${senderName}${senderPosition ? ' · ' + senderPosition : ''}</div>`;
+
+  // ── ITEMS TABLE ──
+  const itemsHtml = items.filter(i=>i.name).map((item,n) => `
+    <tr>
+      <td style="font-size:9.5pt;vertical-align:top;padding:9px 8px">
+        <div style="font-weight:500;color:#1a1a1a">${item.name}</div>
+        ${item.desc ? `<div style="font-size:8pt;color:#999;margin-top:2px;line-height:1.4">${item.desc.replace(/\n/g,'<br>')}</div>` : ''}
+      </td>
+      <td style="text-align:center;font-size:9.5pt;color:#555;padding:9px 8px;vertical-align:top">${item.qty}</td>
+      <td style="text-align:right;font-size:9.5pt;color:#555;padding:9px 8px;vertical-align:top">${fmtRp(item.price)}</td>
+      <td style="text-align:right;font-size:9.5pt;font-weight:500;padding:9px 8px;vertical-align:top">${fmtRp(item.total)}</td>
+    </tr>`).join('') || `<tr><td colspan="4" style="color:#ccc;text-align:center;padding:24px;font-size:9pt">Belum ada item</td></tr>`;
+
+  // ── PAYMENT INFO ──
+  const showBank = (type === 'invoice' || type === 'receipt') && bankNo;
+  const showPaymentInfo = type === 'receipt';
+
+  let paymentInfoBlock = '';
+  if (showPaymentInfo) {
+    paymentInfoBlock = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-top:8mm;padding-top:6mm;border-top:1px solid #e0e0e0">
+        <div>
+          <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px">Pembayaran Diterima</div>
+          <div style="font-size:11pt;font-weight:700;color:#1a1a1a">${paymentMethod}</div>
+          <div style="font-size:8.5pt;color:#666;margin-top:2px">Tanggal: ${paymentDate || '-'}</div>
+          ${paymentNote ? `<div style="font-size:8.5pt;color:#666;margin-top:2px">${paymentNote}</div>` : ''}
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px">Jumlah Diterima</div>
+          <div style="font-size:18pt;font-weight:800;color:#1a1a1a">${fmtRp(total)}</div>
+        </div>
+      </div>`;
+  } else if (showBank) {
+    paymentInfoBlock = `
+      <div style="margin-top:6mm;padding:10px 14px;border:1px solid #e0e0e0;border-radius:4px">
+        <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:8px">Informasi Pembayaran</div>
+        <div style="display:flex;gap:24px;flex-wrap:wrap">
+          <div><span style="font-size:8pt;color:#999">Bank</span><br><span style="font-size:10pt;font-weight:600">${bankName}</span></div>
+          <div><span style="font-size:8pt;color:#999">No. Rekening</span><br><span style="font-size:11pt;font-weight:700;letter-spacing:1px;font-family:monospace">${bankNo}</span></div>
+          <div><span style="font-size:8pt;color:#999">Atas Nama</span><br><span style="font-size:10pt;font-weight:600">${bankHolder}</span></div>
+        </div>
+        <div style="font-size:7.5pt;color:#aaa;margin-top:8px;font-style:italic">Mohon cantumkan nomor dokumen sebagai berita transfer.</div>
+      </div>`;
+  }
+
+  // ── OPENING TEXT per type ──
+  const openingText = {
+    quotation: `Terima kasih telah mempercayakan kebutuhan visual Anda kepada <strong>${brandName}</strong>. Berikut adalah penawaran harga yang kami siapkan khusus berdasarkan kebutuhan yang telah Anda sampaikan.`,
+    proposal:  `Terima kasih telah mempercayakan kebutuhan visual Anda kepada <strong>${brandName}</strong>. Berikut adalah penawaran harga yang kami siapkan berdasarkan kebutuhan yang telah Anda sampaikan.`,
+    invoice:   `Terima kasih telah memilih <strong>${brandName}</strong> sebagai mitra visual Anda. Berikut adalah tagihan resmi atas layanan yang telah/sedang berjalan sesuai kesepakatan.`,
+    receipt:   `Terima kasih atas kepercayaan Anda kepada <strong>${brandName}</strong>. Berikut adalah bukti penerimaan pembayaran atas layanan yang telah disepakati.`,
+  };
+
+  // ── PAGE 1 HTML ──
+  const page1 = `
+<div class="p1" style="font-family:'Inter',sans-serif;font-size:10pt;color:#1a1a1a;padding:16mm 18mm 12mm;min-height:277mm;position:relative;background:#fff">
+
+  <!-- JUDUL BESAR KIRI + SENDER KANAN -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10mm">
+    <div>
+      <div style="font-size:34pt;font-weight:800;color:${accentColor};line-height:1;letter-spacing:-1px">${typeLabel}</div>
+      <div style="font-size:8.5pt;color:#999;margin-top:6px">no. ${docNum} &nbsp;·&nbsp; ${docDate || '-'}</div>
+    </div>
+    <div style="text-align:right">${senderBlock}</div>
+  </div>
+
+  <!-- DIVIDER -->
+  <div style="border-top:1px solid #e0e0e0;margin-bottom:8mm"></div>
+
+  <!-- CLIENT + DOC META (2 kolom) -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8mm;margin-bottom:8mm">
+    <div>
+      <div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:6px">Kepada</div>
+      <div style="font-size:11pt;font-weight:700">${clientName}</div>
+      ${clientCompany ? `<div style="font-size:9.5pt;color:#555;margin-top:2px">${clientCompany}</div>` : ''}
+      <div style="font-size:8.5pt;color:#888;margin-top:4px;line-height:1.6">${[clientPhone,clientEmail,clientAddress].filter(Boolean).join('<br>')}</div>
+    </div>
+    <div style="text-align:right">
+      ${dueDate ? `<div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:4px">${type==='invoice'?'Jatuh Tempo':'Berlaku Hingga'}</div><div style="font-size:9.5pt;font-weight:600">${dueDate}</div>` : ''}
+      ${perihal ? `<div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-top:8px;margin-bottom:4px">Perihal</div><div style="font-size:9.5pt">${perihal}</div>` : ''}
+    </div>
+  </div>
+
+  <!-- OPENING TEXT -->
+  <div style="font-size:9pt;color:#666;line-height:1.6;margin-bottom:6mm">${openingText[type]||''}</div>
+
+  <!-- ITEMS TABLE -->
+  <table style="width:100%;border-collapse:collapse;margin-bottom:0">
+    <thead>
+      <tr style="border-bottom:1.5px solid ${accentColor}">
+        <th style="text-align:left;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px 8px">Deskripsi Layanan</th>
+        <th style="text-align:center;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:40px">Qty</th>
+        <th style="text-align:right;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:120px">Harga Satuan</th>
+        <th style="text-align:right;font-size:8pt;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#999;padding:0 8px 8px;width:120px">Total</th>
+      </tr>
+    </thead>
+    <tbody style="border-bottom:1px solid #e0e0e0">${itemsHtml}</tbody>
+  </table>
+
+  <!-- TOTALS -->
+  <div style="display:flex;justify-content:flex-end;margin-top:4mm;margin-bottom:6mm">
+    <div style="width:55%;min-width:220px">
+      ${disc>0?`<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#888"><span>Subtotal</span><span>${fmtRp(sub)}</span></div><div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#c62828"><span>Diskon (${disc}%)</span><span>- ${fmtRp(discAmt)}</span></div>`:`<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#888"><span>Subtotal</span><span>${fmtRp(sub)}</span></div>`}
+      ${taxType !== 'none' && taxRate > 0 ? `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:9pt;color:#555"><span>${taxLabel} ${taxRate}% ${taxBearer==='client'?'(klien)':'(dipotong)'}</span><span>${taxBearer==='client'?'+ ':'- '}${fmtRp(taxAmt)}</span></div>` : ''}
+      <div style="display:flex;justify-content:space-between;padding:10px 8px;margin-top:4px;border-top:1.5px solid ${accentColor}">
+        <span style="font-size:11pt;font-weight:700">Total ${type==='invoice'?'Tagihan':type==='receipt'?'Diterima':'Penawaran'}</span>
+        <span style="font-size:14pt;font-weight:800">${fmtRp(total)}</span>
+      </div>
+      ${taxType !== 'none' && taxBearer === 'us' ? `<div style="display:flex;justify-content:space-between;padding:4px 8px;font-size:8.5pt;color:#888"><span>Diterima bersih</span><span>${fmtRp(netAmt)}</span></div>` : ''}
+    </div>
+  </div>
+
+  ${paymentInfoBlock}
+
+  <!-- NOTES -->
+  ${notes ? `<div style="margin-top:6mm;padding:10px 14px;border-left:2px solid #1a1a1a;background:#fafafa"><div style="font-size:7.5pt;text-transform:uppercase;letter-spacing:1px;color:#999;margin-bottom:5px">Catatan</div><div style="font-size:9pt;color:#555;line-height:1.6">${notes.replace(/\n/g,'<br>')}</div></div>` : ''}
+
+  <!-- TTD -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:10mm;padding-top:6mm;border-top:1px solid #e0e0e0">
+    <div>
+      <div style="font-size:8.5pt;color:#999;margin-bottom:32px">${type==='invoice'||type==='receipt'?'Diterima oleh Klien,':'Disetujui oleh Klien,'}</div>
+      <div style="border-top:1px solid #ccc;padding-top:4px;min-width:140px">
+        <div style="font-size:8pt;color:#aaa">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</div>
+        <div style="font-size:8pt;color:#888;margin-top:2px">Nama &amp; Jabatan</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:8.5pt;color:#999;margin-bottom:${signatureDataUrl ? '4px' : '32px'}">${closing}</div>
+      ${signatureDataUrl ? `<img src="${signatureDataUrl}" style="max-height:56px;max-width:160px;object-fit:contain;margin-bottom:2px;margin-left:auto;display:block">` : ''}
+      <div style="border-top:1px solid #ccc;padding-top:4px;min-width:140px;text-align:right">
+        <div style="font-weight:700;font-size:10pt">${senderName || brandName}</div>
+        <div style="font-size:8pt;color:#888">${senderPosition || brandName}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="position:absolute;bottom:10mm;left:18mm;right:18mm;display:flex;justify-content:space-between;border-top:1px solid #f0f0f0;padding-top:6px">
+    <div style="font-size:7pt;color:#bbb">${brandName} ${brandSub ? '· ' + brandSub : ''}</div>
+    <div style="font-size:7pt;color:#bbb">Halaman 1 / 2</div>
+  </div>
+</div>`;
+
+  // ── PAGE 2 — SYARAT & KETENTUAN ──
+  const isInvoice = type === 'invoice' || type === 'receipt';
+
+  const stkInvoice = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">1. Batas Waktu Pembayaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Pembayaran mohon diselesaikan paling lambat 3 (tiga) hari kerja sejak invoice ini diterbitkan. Keterlambatan pembayaran dapat berdampak pada jadwal penyerahan file.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">2. Penyerahan File</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">File hasil editing akan diproses dan diserahkan dalam 3–7 hari kerja setelah pembayaran diterima dan terkonfirmasi, dalam format yang telah disepakati.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">3. Keterlambatan Pembayaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Apabila pembayaran belum diterima melewati batas waktu yang ditentukan, ${brandName} berhak menunda penyerahan file hingga pembayaran terselesaikan.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">4. Keabsahan Invoice</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Invoice ini merupakan dokumen resmi dari ${brandName}. Harap simpan sebagai bukti transaksi Anda.</div>
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;border:1px solid #e0e0e0;border-radius:4px;background:#fafafa">
+      <div style="font-size:8.5pt;color:#888;font-style:italic">⚠ Pembayaran belum diterima = file belum dapat diserahkan. Hubungi kami segera jika ada kendala agar dapat kami bantu carikan solusi terbaik.</div>
+    </div>`;
+
+  const stkQuotation = `
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">1. Masa Berlaku Penawaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Harga dalam quotation ini berlaku selama 3 (tiga) hari kalender sejak tanggal pengiriman. Setelah melewati batas waktu tersebut, harga dapat berubah sewaktu-waktu tanpa pemberitahuan terlebih dahulu.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">2. Konfirmasi &amp; Pemesanan</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Pemesanan dianggap sah setelah klien menyampaikan konfirmasi tertulis (via WhatsApp, email, atau media komunikasi lainnya) dan melakukan pembayaran uang muka (Down Payment).</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">3. Pembayaran</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">
+        <b>Uang Muka (DP):</b> 30% dari total nilai proyek, dibayarkan paling lambat 3 (tiga) hari kerja setelah konfirmasi untuk mengamankan tanggal pelaksanaan.<br>
+        <b>Pelunasan:</b> 70% sisa pembayaran dilunasi sebelum file hasil editing diserahkan.<br>
+        Pembayaran dilakukan melalui transfer bank ke rekening resmi ${brandName} yang tercantum di invoice.
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">4. Penyerahan File</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">File hasil editing akan diserahkan dalam 3–7 hari kerja terhitung sejak pelunasan diterima dan terkonfirmasi, dalam format yang telah disepakati bersama.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">5. Pembatalan oleh Klien</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">
+        <b>Pembatalan H-7 atau lebih:</b> DP dikembalikan 50% dari jumlah yang telah dibayarkan.<br>
+        <b>Pembatalan kurang dari H-7:</b> DP tidak dapat dikembalikan, karena slot waktu dan persiapan telah dialokasikan penuh.
+      </div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">6. Revisi</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">Revisi editing mencakup jumlah revisi sesuai brief awal yang telah disepakati. Revisi di luar ketentuan tersebut akan dikenakan biaya tambahan yang akan dikomunikasikan terlebih dahulu.</div>
+    </div>
+    <div style="margin-bottom:10px">
+      <div style="font-size:10pt;font-weight:700;margin-bottom:4px">7. Hak Penggunaan Karya</div>
+      <div style="font-size:9pt;color:#555;line-height:1.6">${brandName} berhak menggunakan hasil dokumentasi sebagai portofolio dan materi promosi, kecuali klien secara tertulis menyatakan keberatan sebelum proyek dimulai.</div>
+    </div>
+    <div style="margin-top:12px;padding:10px 14px;border:1px solid #e0e0e0;border-radius:4px;background:#fafafa">
+      <div style="font-size:8.5pt;color:#888;font-style:italic">⚠ Penawaran ini hanya berlaku 3 hari sejak tanggal pengiriman. Segera konfirmasi untuk mengamankan tanggal dan harga terbaik Anda.</div>
+    </div>`;
+
+  const page2 = `
+<div class="p2" style="font-family:'Inter',sans-serif;font-size:10pt;color:#1a1a1a;padding:16mm 18mm 12mm;min-height:277mm;position:relative;background:#fff;page-break-before:always">
+
+  <!-- HEADER HALAMAN 2 -->
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8mm;padding-bottom:6mm;border-bottom:1px solid #e0e0e0">
+    <div>
+      <div style="font-size:14pt;font-weight:800;color:#1a1a1a">Syarat &amp; Ketentuan</div>
+      <div style="font-size:8.5pt;color:#999;margin-top:3px">${typeLabel} · no. ${docNum}</div>
+    </div>
+    <div style="text-align:right">
+      ${logoDataUrl && (brandModeActive==='both'||brandModeActive==='logo') ? `<img src="${logoDataUrl}" style="max-height:36px;max-width:120px;object-fit:contain;display:block;margin-bottom:4px;margin-left:auto">` : ''}
+      <div style="font-size:9pt;font-weight:600;color:#555">${brandName}</div>
+    </div>
+  </div>
+
+  <!-- S&K CONTENT -->
+  ${isInvoice ? stkInvoice : stkQuotation}
+
+  <!-- PENUTUP -->
+  <div style="margin-top:10mm;padding-top:6mm;border-top:1px solid #e0e0e0">
+    <div style="font-size:9pt;color:#888;line-height:1.7;font-style:italic">
+      ${isInvoice
+        ? `Kami sangat mengapresiasi kepercayaan Anda. Apabila ada pertanyaan terkait invoice ini, tim kami siap membantu kapan saja. Terima kasih telah menjadi bagian dari perjalanan ${brandName}.`
+        : `Kami berharap penawaran ini sesuai dengan yang Anda harapkan. Jika ada pertanyaan atau hal yang ingin didiskusikan, jangan ragu untuk menghubungi kami — kami senang membantu. Bersama ${brandName}, setiap momen Anda layak diabadikan dengan sepenuh hati.`}
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="position:absolute;bottom:10mm;left:18mm;right:18mm;display:flex;justify-content:space-between;border-top:1px solid #f0f0f0;padding-top:6px">
+    <div style="font-size:7pt;color:#bbb">${brandName} ${brandSub ? '· ' + brandSub : ''}</div>
+    <div style="font-size:7pt;color:#bbb">Halaman 2 / 2</div>
+  </div>
+</div>`;
+
+  document.getElementById('print-doc').innerHTML = page1 + page2;
+}
+
+function printDoc() {
+  updatePreview();
+  const printContent = document.getElementById('print-doc').innerHTML;
+  const w = window.open('', '_blank');
+  w.document.write(`<!DOCTYPE html><html><head>
+    <meta charset="UTF-8"><title>Dokumen</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+      *{box-sizing:border-box;margin:0;padding:0}
+      body{font-family:'Inter',sans-serif;background:#fff}
+      .p1,.p2{padding:16mm 18mm 14mm;min-height:277mm;position:relative;background:#fff}
+      .p2{page-break-before:always}
+      img{max-width:100%;display:block}
+      table{border-collapse:collapse;width:100%}
+      @media print{
+        @page{size:A4;margin:0}
+        .p1,.p2{padding:14mm 16mm 12mm;min-height:277mm}
+        .p2{page-break-before:always}
+      }
+    </style>
+  </head><body>${printContent}</body></html>`);
+  w.document.close();
+  setTimeout(() => w.print(), 800);
+}
+
+// ── SAVE DOCUMENT ──
+function saveDocument() {
+  const clientName = document.getElementById('client-name').value.trim();
+  if (!clientName) { showToast('⚠️ Nama klien wajib diisi!', 'error'); return; }
+
+  const docData = {
+    id: currentDocId || uid(),
+    type: document.getElementById('doc-type-select').value,
+    number: document.getElementById('doc-number').value,
+    date: document.getElementById('doc-date').value,
+    dueDate: document.getElementById('doc-due-date').value,
+    status: document.getElementById('doc-status').value,
+    confirmed: document.getElementById('doc-confirmed').checked,
+    clientName, clientCompany: document.getElementById('client-company').value,
+    clientPhone: document.getElementById('client-phone').value,
+    clientEmail: document.getElementById('client-email').value,
+    clientAddress: document.getElementById('client-address').value,
+    items: getItemRows(),
+    discount: parseFloat(document.getElementById('discount-input').value)||0,
+    discountMode: document.getElementById('discount-mode') ? document.getElementById('discount-mode').value : 'pct',
+    taxType: document.getElementById('tax-type').value,
+    taxRate: parseFloat(document.getElementById('tax-rate-input').value)||0,
+    taxBearer: document.getElementById('tax-bearer').value,
+    ppn: document.getElementById('tax-type').value === 'ppn' ? parseFloat(document.getElementById('tax-rate-input').value)||0 : 0,
+    notes: document.getElementById('doc-notes').value,
+    closing: document.getElementById('doc-closing').value,
+    senderName: document.getElementById('sender-name').value,
+    senderContact: '',
+    senderPosition: document.getElementById('sender-position') ? document.getElementById('sender-position').value : '',
+    senderAddress: document.getElementById('sender-address').value,
+    bankName: document.getElementById('bank-name').value,
+    bankNumber: document.getElementById('bank-number').value,
+    bankHolder: document.getElementById('bank-holder').value,
+    paymentNote: document.getElementById('payment-note').value,
+    paymentDate: document.getElementById('payment-date').value,
+    paymentMethod: document.getElementById('payment-method').value,
+    total: calcTotal(),
+    createdAt: currentDocId ? (documents.find(d=>d.id===currentDocId)||{}).createdAt || now() : now(),
+    updatedAt: now(),
+  };
+
+  // Auto-save client
+  autoSaveClient(docData);
+
+  if (currentDocId) {
+    const idx = documents.findIndex(d=>d.id===currentDocId);
+    if (idx>=0) documents[idx] = docData;
+  } else {
+    documents.unshift(docData);
+    incrementCounter(docData.type);
+  }
+  DB.set('lf_docs', documents);
+  Cloud.push('sync_docs', documents);
+  currentDocId = docData.id;
+  updateBadges();
+
+  // ── PIPELINE: pastikan Quotation/Invoice apa pun jalur pembuatannya tetap punya kartu ──
+  if (docData.type === 'quotation') ensureCardForQuotation(docData);
+
+  // ── PIPELINE: Quotation yang baru di-ACC memicu job + auto-invoice ──
+  if (docData.type === 'quotation' && docData.confirmed) {
+    const wasAlreadyActive = cards.find(c => c.quotationDocId === docData.id && c.stage !== 'quotation');
+    if (!wasAlreadyActive) onQuotationConfirmed(docData);
+  }
+
+  // ── PIPELINE: Invoice/MOU yang dibuat lewat tombol "+ Buat..." dari kartu ──
+  if (pendingCardLink && pendingCardLink.field && docData.type === (pendingCardLink.field === 'invoiceDocId' ? 'invoice' : 'mou')) {
+    const card = cards.find(c => c.id === pendingCardLink.cardId);
+    if (card) { card[pendingCardLink.field] = docData.id; card.updatedAt = now(); saveCardsToStorage(); }
+    pendingCardLink = null;
+  }
+
+  // ── PIPELINE: fallback — invoice apa pun jalur pembuatannya tetap dijamin punya kartu ──
+  if (docData.type === 'invoice') ensureCardForInvoice(docData);
+
+  showToast('✅ Dokumen berhasil disimpan!', 'success');
+
+  // ── KIRIM KE WA (skip untuk quotation yg baru saja ACC, invoice-nya sudah otomatis dibuat & belum tentu siap dikirim) ──
+  if (!(docData.type === 'quotation' && docData.confirmed)) {
+    openSendWaModal(docData);
+  }
+
+  navigate('pipeline');
+}
+
+function onDocConfirmedChange() { /* efek baru terjadi saat dokumen disimpan */ }
+
+function autoSaveClient(doc) {
+  if (!doc.clientName) return;
+  const exists = clients.find(c => c.name.toLowerCase() === doc.clientName.toLowerCase());
+  if (!exists) {
+    clients.push({ id: uid(), name: doc.clientName, company: doc.clientCompany, phone: doc.clientPhone, email: doc.clientEmail, address: doc.clientAddress, createdAt: now() });
+    DB.set('lf_clients', clients);
+    Cloud.push('sync_clients', clients);
+    showToast('👤 Klien "' + doc.clientName + '" disimpan ke database!', 'success');
+  }
+}
+
+function calcTotal() {
+  const items = getItemRows();
+  const sub = items.reduce((a,i)=>a+i.total, 0);
+  const discVal2  = parseFloat(document.getElementById('discount-input').value) || 0;
+  const discMode2 = document.getElementById('discount-mode') ? document.getElementById('discount-mode').value : 'pct';
+  const discAmt2  = discMode2 === 'nominal' ? Math.min(discVal2, sub) : sub * discVal2 / 100;
+  const taxType = document.getElementById('tax-type').value;
+  const taxRate = taxType !== 'none' ? (parseFloat(document.getElementById('tax-rate-input').value) || 0) : 0;
+  const taxBearer = taxType !== 'none' ? document.getElementById('tax-bearer').value : 'client';
+  const afterDisc = sub - discAmt2;
+  const taxAmt = afterDisc * taxRate / 100;
+  return taxBearer === 'client' ? afterDisc + taxAmt : afterDisc;
+}
+
+// ── RENDER TABLES ──
+function renderDocumentsList() {
+  renderDocsTable('docs-table-body', documents);
+  updateBadges();
+}
+
+function renderDocsTable(tbodyId, docs) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  if (!docs.length) {
+    tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><div class="icon">📄</div><p>Belum ada dokumen</p></div></td></tr>`;
+    return;
+  }
+  const typeLabels = { quotation:'Quotation', proposal:'Surat Penawaran', invoice:'Invoice', receipt:'Bukti Pembayaran', mou:'MOU' };
+  tbody.innerHTML = docs.map(d => `
+    <tr>
+      <td><strong>${d.number||'-'}</strong></td>
+      <td><span class="badge-status badge-${d.type}">${typeLabels[d.type]||d.type}</span></td>
+      <td>${d.clientName||'-'}${d.clientCompany?`<br><small style="color:var(--mid)">${d.clientCompany}</small>`:''}</td>
+      <td>${fmtDate(d.date)||'-'}</td>
+      <td>${fmtRp(d.total||0)}</td>
+      <td><span class="badge-status badge-${d.status}">${{draft:'Draft',sent:'Terkirim',paid:'Lunas',unpaid:'Belum Bayar'}[d.status]||d.status}</span></td>
+      <td>
+        <div class="action-btns">
+          <button class="btn btn-ghost btn-sm" onclick="openNewDoc('${d.type}','${d.id}')">✏️</button>
+          <button class="btn btn-gold btn-sm" onclick="printDocById('${d.id}')">🖨️</button>
+          ${d.type === 'quotation' ? `<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7" onclick="convertToInvoice('${d.id}')" title="Convert ke Invoice">🧾 → INV</button>` : ''}
+          ${d.type === 'invoice' && d.status !== 'paid' ? `<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7" onclick="quickMarkPaid('${d.id}')" title="Tandai Lunas">✅ Lunas</button>` : ''}
+          <button class="btn btn-danger btn-sm" onclick="deleteDoc('${d.id}')">🗑️</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+
+// Format Rp singkat (1.5Jt, 3.2Jt)
+function fmtRpShort(n) {
+  if (n >= 1000000) return 'Rp '+(n/1000000).toFixed(1).replace('.0','')+'Jt';
+  if (n >= 1000) return 'Rp '+(n/1000).toFixed(0)+'Rb';
+  return fmtRp(n);
+}
+
+function renderClients(filter='') {
+  const grid = document.getElementById('clients-grid');
+  const list = filter ? clients.filter(c=>c.name.toLowerCase().includes(filter)||((c.company||'').toLowerCase().includes(filter))) : clients;
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">👥</div><p>Tidak ada klien ditemukan.</p></div>`; return;
+  }
+  grid.innerHTML = list.map((c,i) => `
+    <div class="client-card">
+      <div class="client-avatar">${c.name[0].toUpperCase()}</div>
+      <div class="client-name">${c.name}</div>
+      ${c.company?`<div class="client-company">🏢 ${c.company}</div>`:''}
+      ${c.phone?`<div class="client-detail">📱 ${c.phone}</div>`:''}
+      ${c.email?`<div class="client-detail">✉️ ${c.email}</div>`:''}
+      ${c.address?`<div class="client-detail">📍 ${c.address.substring(0,40)}${c.address.length>40?'...':''}</div>`:''}
+      <div class="card-actions" style="margin-top:12px;display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="editClient('${c.id}')">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteClient('${c.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderItems(filter='', category='') {
+  const grid = document.getElementById('items-grid');
+  let list = itemsDB;
+  if (filter) list = list.filter(i=>i.name.toLowerCase().includes(filter)||(i.desc||'').toLowerCase().includes(filter));
+  if (category) list = list.filter(i=> Array.isArray(i.categories) ? i.categories.includes(category) : i.category===category);
+  if (!list.length) {
+    grid.innerHTML = `<div class="empty-state"><div class="icon">📦</div><p>Tidak ada item ditemukan.</p></div>`; return;
+  }
+  grid.innerHTML = list.map(i => `
+    <div class="item-db-card">
+      <div class="item-cat">${(Array.isArray(i.categories)?i.categories:[i.category||'Lainnya']).join(' · ')} · ${i.unit||'Paket'}${i.cost ? ` · Margin: ${i.price>0?((i.price-i.cost)/i.price*100).toFixed(0)+'%':'—'}` : ''}</div>
+      <div class="item-name">${i.name}</div>
+      <div class="item-price">${fmtRp(i.price)}</div>
+      ${i.desc?`<div style="font-size:11px;color:var(--mid);margin-top:4px">${i.desc}</div>`:''}
+      <div class="card-actions">
+        <button class="btn btn-ghost btn-sm" onclick="editItem('${i.id}')">✏️ Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteItem('${i.id}')">🗑️</button>
+      </div>
+    </div>`).join('');
+}
+
+// ── FILTERS ──
+function navigateToFiltered(type, status) {
+  navigate('documents');
+  // Set filter type
+  const typeEl = document.getElementById('doc-type-filter');
+  if (typeEl) { typeEl.value = type; }
+  // Set filter status
+  const statusEl = document.getElementById('doc-status-filter');
+  if (statusEl) { statusEl.value = status; }
+  filterDocuments('', type, status);
+}
+
+function filterDocuments(val, typeFilter, statusFilter) {
+  if (typeFilter === undefined) typeFilter = document.getElementById('doc-type-filter').value;
+  if (statusFilter === undefined) { const s = document.getElementById('doc-status-filter'); statusFilter = s ? s.value : ''; }
+  let list = documents;
+  if (val) list = list.filter(d=>(d.number||'').toLowerCase().includes(val)||(d.clientName||'').toLowerCase().includes(val));
+  if (typeFilter) list = list.filter(d=>d.type===typeFilter);
+  if (statusFilter) list = list.filter(d=>d.status===statusFilter);
+  renderDocsTable('docs-table-body', list);
+}
+function filterClients(v) { renderClients(v.toLowerCase()); }
+function filterItems(v) { renderItems(v.toLowerCase(), currentItemCategory); }
+function filterByCategory(cat, btn) {
+  currentItemCategory = cat;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderItems('', cat);
+}
+
+// ── CRUD CLIENT ──
+function openAddClientModal() { editingClientIndex = null; resetClientModal(); openModal('modal-client'); }
+function editClient(id) {
+  editingClientIndex = clients.findIndex(c => c.id === id);
+  if (editingClientIndex === -1) { showToast('Klien tidak ditemukan','error'); return; }
+  const c = clients[editingClientIndex];
+  document.getElementById('m-client-name').value = c.name||'';
+  document.getElementById('m-client-company').value = c.company||'';
+  document.getElementById('m-client-phone').value = c.phone||'';
+  document.getElementById('m-client-email').value = c.email||'';
+  document.getElementById('m-client-address').value = c.address||'';
+  openModal('modal-client');
+}
+function resetClientModal() { ['m-client-name','m-client-company','m-client-phone','m-client-email','m-client-address'].forEach(id=>document.getElementById(id).value=''); }
+function saveClient() {
+  const name = document.getElementById('m-client-name').value.trim();
+  if (!name) { showToast('Nama klien wajib diisi!','error'); return; }
+  const c = { name, company:document.getElementById('m-client-company').value, phone:document.getElementById('m-client-phone').value, email:document.getElementById('m-client-email').value, address:document.getElementById('m-client-address').value };
+  if (editingClientIndex !== null && editingClientIndex >= 0) { clients[editingClientIndex] = {...clients[editingClientIndex],...c}; }
+  else { clients.push({id:uid(),...c,createdAt:now()}); }
+  DB.set('lf_clients',clients);
+  Cloud.push('sync_clients', clients);
+  closeModal('modal-client');
+  renderClients();
+  showToast('✅ Klien berhasil disimpan!','success');
+}
+function deleteClient(id) {
+  if (!confirm('Hapus klien ini?')) return;
+  clients = clients.filter(c=>c.id!==id);
+  DB.set('lf_clients',clients);
+  Cloud.push('sync_clients', clients);
+  renderClients();
+  showToast('🗑️ Klien dihapus','success');
+}
+
+// ── CRUD ITEM ──
+function openAddItemModal() { editingItemIndex = null; resetItemModal(); renderCategoryChips([]); openModal('modal-item'); }
+function editItem(id) {
+  editingItemIndex = itemsDB.findIndex(i=>i.id===id);
+  if (editingItemIndex === -1) { showToast('Item tidak ditemukan','error'); return; }
+  const i = itemsDB[editingItemIndex];
+  const selectedCats = Array.isArray(i.categories) ? i.categories : (i.category ? [i.category] : [getCategories()[0]]);
+  renderCategoryChips(selectedCats);
+  document.getElementById('m-item-name').value = i.name||'';
+  document.getElementById('m-item-price').value = i.price||0;
+  if (document.getElementById('m-item-cost')) document.getElementById('m-item-cost').value = i.cost||0;
+  updateItemMarginPreview();
+  document.getElementById('m-item-desc').value = i.desc||'';
+  document.getElementById('m-item-unit').value = i.unit||'Paket';
+  openModal('modal-item');
+}
+function resetItemModal() {
+  document.getElementById('m-item-name').value='';
+  document.getElementById('m-item-price').value='';
+  if (document.getElementById('m-item-cost')) document.getElementById('m-item-cost').value='';
+  document.getElementById('m-item-desc').value='';
+  document.getElementById('m-item-unit').value='Paket';
+  const mp = document.getElementById('m-item-margin-preview');
+  if (mp) mp.textContent = '—';
+}
+function saveItem() {
+  const name = document.getElementById('m-item-name').value.trim();
+  if (!name) { showToast('Nama item wajib diisi!','error'); return; }
+  const selectedCats = getSelectedCategories();
+  const costVal = parseFloat(document.getElementById('m-item-cost').value)||0;
+  const priceVal = parseFloat(document.getElementById('m-item-price').value)||0;
+  const item = {
+    name,
+    categories: selectedCats.length ? selectedCats : [getCategories()[0]],
+    category: selectedCats[0] || getCategories()[0],
+    price: priceVal,
+    cost: costVal,
+    margin: priceVal > 0 ? ((priceVal - costVal) / priceVal * 100) : 0,
+    desc: document.getElementById('m-item-desc').value,
+    unit: document.getElementById('m-item-unit').value,
+  };
+  if (editingItemIndex !== null && editingItemIndex >= 0) { itemsDB[editingItemIndex] = {...itemsDB[editingItemIndex],...item}; }
+  else { itemsDB.push({id:uid(),...item,createdAt:now()}); }
+  DB.set('lf_items',itemsDB);
+  Cloud.push('sync_items', itemsDB);
+  closeModal('modal-item');
+  renderItems();
+  showToast('✅ Item berhasil disimpan!','success');
+}
+function deleteItem(id) {
+  if (!confirm('Hapus item ini?')) return;
+  itemsDB = itemsDB.filter(i=>i.id!==id);
+  DB.set('lf_items',itemsDB);
+  Cloud.push('sync_items', itemsDB);
+  renderItems();
+  showToast('🗑️ Item dihapus','success');
+}
+
+// ── CONVERT QUOTATION → INVOICE ──
+function convertToInvoice(id, skipConfirm = false) {
+  const doc = documents.find(d => d.id === id);
+  if (!doc || doc.type !== 'quotation') return;
+  if (!skipConfirm && !confirm(`Convert Quotation "${doc.number}" menjadi Invoice?\n\nDokumen baru akan dibuat dengan semua data yang sama.`)) return;
+
+  const newInv = {
+    ...doc,
+    id: uid(),
+    type: 'invoice',
+    number: generateDocNumber('invoice'),
+    date: today(),
+    dueDate: '',
+    status: 'unpaid',
+    bankName: doc.bankName || settings.bankName || '',
+    bankNumber: doc.bankNumber || settings.bankNo || '',
+    bankHolder: doc.bankHolder || settings.bankHolder || '',
+    notes: settings.noteInv || doc.notes || '',
+    sourceQtId: id,
+    createdAt: now(),
+    updatedAt: now(),
+  };
+
+  documents.unshift(newInv);
+  incrementCounter('invoice');
+  DB.set('lf_docs', documents);
+  Cloud.push('sync_docs', documents);
+  updateBadges();
+
+  // Kalau ada job legacy yang tertaut ke Quotation ini, pindahkan tautannya ke Invoice baru
+  const linkedJob = jobs.find(j => j.linkedDocId === id);
+  if (linkedJob) {
+    linkedJob.linkedDocId = newInv.id;
+    linkedJob.linkedDocType = 'invoice';
+    linkedJob.linkedDocNumber = newInv.number;
+    saveJobsToStorage();
+  }
+
+  // Pastikan kartu Pipeline-nya ada (tempel ke kartu quotation kalau ada, atau buat baru)
+  ensureCardForInvoice(newInv);
+
+  showToast(`✅ Invoice "${newInv.number}" berhasil dibuat dari ${doc.number}!`, 'success');
+  renderDocumentsList();
+
+  // Langsung buka editor invoice baru
+  setTimeout(() => openNewDoc('invoice', newInv.id), 400);
+}
+
+// ── DELETE DOC ──
+function quickMarkPaid(id) {
+  const doc = documents.find(d => d.id === id);
+  if (!doc) return;
+  document.getElementById('qp-doc-id').value = id;
+  document.getElementById('quick-paid-info').textContent = `Invoice #${doc.number} — ${doc.clientName || '-'} — ${fmtRp(doc.total || 0)}`;
+  document.getElementById('qp-payment-date').value = today();
+  openModal('modal-quick-paid');
+}
+
+function confirmQuickPaid() {
+  const id = document.getElementById('qp-doc-id').value;
+  const doc = documents.find(d => d.id === id);
+  if (!doc) return;
+  doc.status = 'paid';
+  doc.paymentDate = document.getElementById('qp-payment-date').value || today();
+  doc.updatedAt = now();
+  DB.set('lf_docs', documents);
+  Cloud.push('sync_docs', documents);
+  updateBadges();
+  closeModal('modal-quick-paid');
+  showToast('✅ Invoice ditandai Lunas!', 'success');
+  navigate('pipeline');
+}
+
+function deleteDoc(id) {
+  if (!confirm('Hapus dokumen ini?')) return;
+  documents = documents.filter(d=>d.id!==id);
+  DB.set('lf_docs',documents);
+  Cloud.push('sync_docs', documents);
+  // Job lama (legacy) yang tertaut ke dokumen ini tautannya dilepas
+  const linkedJobs = jobs.filter(j => j.linkedDocId === id);
+  if (linkedJobs.length) {
+    jobs.forEach(j => { if (j.linkedDocId === id) { j.linkedDocId = null; j.linkedDocType = null; j.linkedDocNumber = null; } });
+    DB.set('lf_jobs', jobs);
+    Cloud.push('sync_jobs', jobs);
+  }
+  // Kartu Pipeline yang tertaut ke dokumen ini tautannya dilepas (kartu tetap ada)
+  let cardTouched = false;
+  cards.forEach(c => {
+    if (c.quotationDocId === id) { c.quotationDocId = null; cardTouched = true; }
+    if (c.invoiceDocId === id) { c.invoiceDocId = null; cardTouched = true; }
+  });
+  if (cardTouched) saveCardsToStorage();
+  renderDocumentsList();
+  showToast('🗑️ Dokumen dihapus','success');
+}
+
+function printDocById(id) {
+  const doc = documents.find(d=>d.id===id);
+  if (!doc) return;
+  openNewDoc(doc.type, id);
+  setTimeout(printDoc, 400);
+}
+
+// ── SETTINGS ──
+function loadSettings() {
+  const s = settings;
+  document.getElementById('s-checklist-template').value = defaultChecklist.join('\n');
+  ['brand-name','brand-sub','owner-name','owner-position','email','phone','address','social','bank-name','bank-no','bank-holder',
+   'prefix-qt','prefix-sp','prefix-inv','prefix-bp','prefix-mou','note-qt','note-inv','tnc','accent-color',
+   'counter-qt','counter-sp','counter-inv','counter-bp','counter-mou','sync-url'].forEach(k => {
+    const el = document.getElementById('s-'+k);
+    if (!el || el.type === 'hidden') return;
+    const sKey = k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase());
+    // BUG FIX: gunakan != null (bukan !== undefined) agar nilai '' (string kosong)
+    // yang memang disengaja tetap dimuat. Sebelumnya key yang belum pernah disimpan
+    // tidak diisi field-nya, tapi saveSetting() langsung menimpanya dengan ''.
+    if (s[sKey] != null) el.value = s[sKey];
+  });
+
+  // Tampilkan bootstrap banner jika data masih kosong
+  const banner = document.getElementById('bootstrap-banner');
+  if (banner) {
+    const isEmpty = !s.brandName && !s.ownerName && documents.length === 0 && clients.length === 0;
+    banner.style.display = isEmpty ? 'block' : 'none';
+  }
+
+  // Restore logo preview
+  if (logoDataUrl) {
+    const prev = document.getElementById('s-logo-preview');
+    const ph = document.getElementById('s-logo-placeholder');
+    if (prev) { prev.src = logoDataUrl; prev.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+  }
+  // Restore signature preview
+  if (signatureDataUrl) {
+    const prev = document.getElementById('s-signature-preview');
+    const ph = document.getElementById('s-signature-placeholder');
+    if (prev) { prev.src = signatureDataUrl; prev.style.display = 'block'; }
+    if (ph) ph.style.display = 'none';
+  }
+  // Restore brand mode toggle
+  const mode = settings.brandMode || 'both';
+  document.querySelectorAll('[id^=brand-toggle-]').forEach(b => b.classList.remove('active'));
+  const activeToggle = document.getElementById('brand-toggle-' + mode);
+  if (activeToggle) activeToggle.classList.add('active');
+  updateSettingsBrandPreview();
+}
+
+// Dipanggil setiap kali user mengetik/paste URL sync.
+// Langsung simpan syncUrl ke localStorage tanpa menunggu saveSetting() penuh —
+// supaya Cloud.enabled() langsung true dan tombol pull bisa dipakai.
+function onSyncUrlInput(val) {
+  const url = val.trim();
+  settings.syncUrl = url;
+  DB.set('lf_settings', settings);
+
+  const hint = document.getElementById('sync-url-hint');
+  if (!url) {
+    Cloud.setStatus('off');
+    if (hint) hint.textContent = '';
+    return;
+  }
+  if (!url.includes('script.google.com')) {
+    if (hint) { hint.textContent = '⚠️ URL terlihat tidak valid. Pastikan berasal dari Google Apps Script.'; hint.style.color = '#c0392b'; }
+    return;
+  }
+  if (hint) { hint.textContent = '✅ URL tersimpan. Klik "Ambil Data dari Cloud" untuk menarik data.'; hint.style.color = '#27ae60'; }
+  Cloud.setStatus('idle');
+}
+
+// Tarik semua data dari cloud — versi eksplisit dengan feedback & reload settings UI.
+async function bootstrapFromCloud() {
+  const url = (document.getElementById('s-sync-url') || {}).value || settings.syncUrl || '';
+  if (!url) {
+    showToast('⚠️ Isi URL Apps Script dulu!', 'error');
+    return;
+  }
+  // Pastikan syncUrl sudah tersimpan sebelum pull
+  settings.syncUrl = url.trim();
+  DB.set('lf_settings', settings);
+
+  showToast('⏳ Mengambil data dari cloud...', 'success');
+  const pulled = await Cloud.pull();
+  if (pulled) {
+    migrateToCardsIfNeeded();
+    reconcileCardsWithDocuments();
+    updateBadges();
+    renderPipeline();
+    loadSettings(); // reload UI settings dengan data baru dari cloud
+    showToast('✅ Data berhasil diambil! Settings, dokumen, klien sudah diperbarui.', 'success');
+    const banner = document.getElementById('bootstrap-banner');
+    if (banner) banner.style.display = 'none';
+  } else {
+    showToast('❌ Gagal ambil data. Cek URL dan koneksi internet.', 'error');
+  }
+}
+function saveSetting() {
+  ['brand-name','brand-sub','owner-name','owner-position','email','phone','address','social','bank-name','bank-no','bank-holder',
+   'prefix-qt','prefix-sp','prefix-inv','prefix-bp','prefix-mou','note-qt','note-inv','tnc','accent-color',
+   'counter-qt','counter-sp','counter-inv','counter-bp','counter-mou','sync-url'].forEach(k => {
+    // BUG FIX: skip hidden inputs (s-gsheet-clients, s-gsheet-items) — nilainya
+    // selalu kosong karena type=hidden, tapi tetap menimpa settings yang ada.
+    const el = document.getElementById('s-'+k);
+    if (!el || el.type === 'hidden') return;
+    const sKey = k.replace(/-([a-z])/g,(_,l)=>l.toUpperCase());
+    // BUG FIX: jangan timpa nilai yang sudah ada dengan string kosong.
+    // Hanya update jika user benar-benar mengisi sesuatu, atau jika
+    // memang sebelumnya kosong (nilai kosong yang disengaja).
+    const newVal = el.value;
+    if (newVal !== '' || settings[sKey] === undefined) {
+      settings[sKey] = newVal;
+    }
+  });
+  DB.set('lf_settings', settings);
+  Cloud.push('sync_settings', settings);
+  // Sync categories juga
+  const cats = getCategories();
+  DB.set('lf_categories', cats);
+  Cloud.push('sync_items', itemsDB); // items dan categories ikut settings sync
+  updateSettingsBrandPreview();
+}
+
+function incrementCounter(type) {
+  const map = { quotation:'counterQt', proposal:'counterSp', invoice:'counterInv', receipt:'counterBp', mou:'counterMou' };
+  const k = map[type];
+  if (k) { settings[k] = (parseInt(settings[k])||1) + 1; DB.set('lf_settings',settings); }
+}
+
+function generateDocNumber(type) {
+  const yr = new Date().getFullYear();
+  const mo = String(new Date().getMonth()+1).padStart(2,'0');
+  const prefixMap = { quotation: settings.prefixQt||'QT', proposal: settings.prefixSp||'SP', invoice: settings.prefixInv||'INV', receipt: settings.prefixBp||'BP', mou: settings.prefixMou||'MOU' };
+  const counterMap = { quotation: settings.counterQt||1, proposal: settings.counterSp||1, invoice: settings.counterInv||1, receipt: settings.counterBp||1, mou: settings.counterMou||1 };
+  return `${prefixMap[type]}/${yr}/${mo}/${String(counterMap[type]).padStart(3,'0')}`;
+}
+
+function clearAllData() {
+  localStorage.clear();
+  documents=[]; clients=[]; itemsDB=[]; settings={}; logoDataUrl=null; signatureDataUrl=null; jobs=[]; cards=[];
+  defaultChecklist = ['Konsep & Persiapan', 'Pemotretan / Produksi', 'Editing', 'Delivery ke Klien'];
+  showToast('🗑️ Semua data direset','success');
+  navigate('pipeline');
+}
+
+// ── MODAL ──
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
+
+// ── TOAST ──
+function showToast(msg, type='success') {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  setTimeout(() => t.className = '', 2800);
+}
+
+// ── UTILS ──
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function now() { return new Date().toISOString(); }
+function today() { return new Date().toISOString().split('T')[0]; }
+
+// ══════════════════════════════════════════
+// ── PIPELINE (CARDS) — 1 kartu = 1 pekerjaan ──
+// ══════════════════════════════════════════
+
+// Hitung margin dari sebuah dokumen invoice (butuh HPP/cost terisi di item)
+function calcDocMargin(doc) {
+  if (!doc || !doc.items || !doc.items.length) return null;
+  const revenue = doc.items.reduce((a,i) => a + (i.total || 0), 0);
+  const cost = doc.items.reduce((a,i) => a + ((i.cost || 0) * (i.qty || 1)), 0);
+  if (revenue <= 0) return null;
+  const profit = revenue - cost;
+  const marginPct = Math.round((profit / revenue) * 100);
+  return { revenue, cost, profit, marginPct };
+}
+
+function saveCardsToStorage() {
+  DB.set('lf_cards', cards);
+  Cloud.push('sync_cards', cards);
+}
+
+function saveChecklistTemplate() {
+  DB.set('lf_checklist_template', defaultChecklist);
+  Cloud.push('sync_checklist_template', defaultChecklist);
+}
+
+function saveChecklistTemplateFromSettings() {
+  const lines = document.getElementById('s-checklist-template').value.split('\n').map(l => l.trim()).filter(Boolean);
+  defaultChecklist = lines.length ? lines : defaultChecklist;
+  saveChecklistTemplate();
+}
+
+// ── MIGRASI SATU KALI DARI DATA LAMA (documents + jobs) ──
+function migrateToCardsIfNeeded() {
+  if (DB.get('lf_cards') !== null) return; // sudah pernah migrasi, jangan diulang
+
+  const built = [];
+  const usedInvoiceIds = new Set();
+
+  // 1. Mulai dari setiap Quotation
+  documents.filter(d => d.type === 'quotation').forEach(qt => {
+    const linkedJob = jobs.find(j => j.linkedDocId === qt.id || (j.linkedDocId && documents.find(dd => dd.id===j.linkedDocId && dd.sourceQtId===qt.id)));
+    const linkedInvoice = documents.find(d => d.type === 'invoice' && d.sourceQtId === qt.id);
+    if (linkedInvoice) usedInvoiceIds.add(linkedInvoice.id);
+
+    const jobForThis = jobs.find(j => j.linkedDocId === qt.id || (linkedInvoice && j.linkedDocId === linkedInvoice.id));
+
+    let stage = 'quotation';
+    if (qt.confirmed || linkedInvoice) stage = 'active';
+    if (linkedInvoice && linkedInvoice.status === 'paid' && jobForThis && jobForThis.subtasks && jobForThis.subtasks.length && jobForThis.subtasks.every(s=>s.done)) stage = 'done';
+
+    built.push({
+      id: uid(),
+      title: qt.items && qt.items.length ? qt.items.map(i=>i.name).filter(Boolean).join(', ') : qt.number,
+      clientName: qt.clientName || '',
+      clientPhone: qt.clientPhone || '',
+      stage,
+      quotationDocId: qt.id,
+      invoiceDocId: linkedInvoice ? linkedInvoice.id : null,
+      checklist: jobForThis ? (jobForThis.subtasks||[]).map(s=>({id:s.id||uid(), text:s.text, done:s.done})) : [],
+      notes: (jobForThis && jobForThis.notes) || '',
+      deadline: (jobForThis && jobForThis.deadline) || qt.dueDate || qt.date || today(),
+      estValue: qt.total || 0,
+      createdAt: qt.createdAt || now(),
+      updatedAt: now(),
+      completedAt: (jobForThis && jobForThis.completedDate) || null,
+    });
+  });
+
+  // 2. Invoice yang berdiri sendiri (tanpa quotation sumber)
+  documents.filter(d => d.type === 'invoice' && !usedInvoiceIds.has(d.id) && !d.sourceQtId).forEach(inv => {
+    const jobForThis = jobs.find(j => j.linkedDocId === inv.id);
+    let stage = inv.status === 'paid' && jobForThis && jobForThis.subtasks && jobForThis.subtasks.length && jobForThis.subtasks.every(s=>s.done) ? 'done' : 'active';
+    built.push({
+      id: uid(),
+      title: inv.items && inv.items.length ? inv.items.map(i=>i.name).filter(Boolean).join(', ') : inv.number,
+      clientName: inv.clientName || '',
+      clientPhone: inv.clientPhone || '',
+      stage,
+      quotationDocId: null,
+      invoiceDocId: inv.id,
+      checklist: jobForThis ? (jobForThis.subtasks||[]).map(s=>({id:s.id||uid(), text:s.text, done:s.done})) : [],
+      notes: (jobForThis && jobForThis.notes) || '',
+      deadline: (jobForThis && jobForThis.deadline) || inv.dueDate || inv.date || today(),
+      estValue: inv.total || 0,
+      createdAt: inv.createdAt || now(),
+      updatedAt: now(),
+      completedAt: (jobForThis && jobForThis.completedDate) || null,
+    });
+  });
+
+  // 3. Job manual tanpa dokumen sama sekali
+  jobs.filter(j => !j.linkedDocId && j.source === 'manual').forEach(j => {
+    const isDone = j.subtasks && j.subtasks.length && j.subtasks.every(s=>s.done);
+    built.push({
+      id: uid(),
+      title: j.title,
+      clientName: j.clientName || '',
+      clientPhone: '',
+      stage: isDone ? 'done' : 'active',
+      quotationDocId: null,
+      invoiceDocId: null,
+      checklist: (j.subtasks||[]).map(s=>({id:s.id||uid(), text:s.text, done:s.done})),
+      notes: j.notes || '',
+      deadline: j.deadline || today(),
+      estValue: 0,
+      createdAt: j.createdAt || now(),
+      updatedAt: now(),
+      completedAt: j.completedDate || null,
+    });
+  });
+
+  cards = built;
+  saveCardsToStorage();
+}
+
+function getCardInvoice(card) { return card.invoiceDocId ? documents.find(d => d.id === card.invoiceDocId) : null; }
+function getCardQuotation(card) { return card.quotationDocId ? documents.find(d => d.id === card.quotationDocId) : null; }
+function getCardMou(card) { return card.mouDocId ? documents.find(d => d.id === card.mouDocId) : null; }
+
+function cardChecklistProgress(card) {
+  const total = (card.checklist||[]).length;
+  const done = (card.checklist||[]).filter(s=>s.done).length;
+  return { total, done, pct: total > 0 ? Math.round((done/total)*100) : 0 };
+}
+
+function cardEffectiveValue(card) {
+  const inv = getCardInvoice(card);
+  if (inv) return inv.total || 0;
+  const qt = getCardQuotation(card);
+  if (qt) return qt.total || 0;
+  return card.estValue || 0;
+}
+
+// Cek & pindahkan kartu ke 'done' otomatis kalau checklist 100% & (tidak ada invoice ATAU invoice sudah lunas)
+function reevaluateCardStage(card) {
+  if (card.stage === 'quotation') return; // belum ACC, jangan disentuh
+  const prog = cardChecklistProgress(card);
+  const inv = getCardInvoice(card);
+  const financeOk = !inv || inv.status === 'paid';
+  const workOk = prog.total === 0 ? false : prog.pct === 100;
+  if (workOk && financeOk) {
+    if (card.stage !== 'done') { card.stage = 'done'; card.completedAt = today(); }
+  } else if (card.stage === 'done') {
+    card.stage = 'active'; card.completedAt = null;
+  }
+}
+
+// ── DIPANGGIL DARI saveDocument() SAAT QUOTATION DI-ACC ──
+// ── PASTIKAN SETIAP QUOTATION/INVOICE PUNYA KARTU (dipanggil tiap kali dokumen disimpan, & saat rekonsiliasi) ──
+function ensureCardForQuotation(doc) {
+  let card = cards.find(c => c.quotationDocId === doc.id);
+  if (!card) {
+    card = {
+      id: uid(),
+      title: doc.items && doc.items.length ? doc.items.map(i=>i.name).filter(Boolean).join(', ') : doc.number,
+      clientName: doc.clientName || '', clientPhone: doc.clientPhone || '',
+      stage: 'quotation', quotationDocId: doc.id, invoiceDocId: null, mouDocId: null,
+      checklist: [], notes: '', deadline: doc.dueDate || doc.date || today(), estValue: doc.total || 0,
+      createdAt: doc.createdAt || now(), updatedAt: now(), completedAt: null,
+    };
+    cards.push(card);
+    saveCardsToStorage();
+  }
+  return card;
+}
+
+function ensureCardForInvoice(doc) {
+  let card = cards.find(c => c.invoiceDocId === doc.id);
+  if (card) return card;
+
+  // Invoice ini berasal dari convert Quotation? Coba tempel ke kartu quotation itu dulu
+  if (doc.sourceQtId) {
+    card = cards.find(c => c.quotationDocId === doc.sourceQtId);
+    if (card) {
+      card.invoiceDocId = doc.id;
+      if (card.stage === 'quotation') card.stage = 'active';
+      if (!card.checklist || !card.checklist.length) {
+        card.checklist = defaultChecklist.map(text => ({ id: uid(), text, done: false }));
+      }
+      card.updatedAt = now();
+      saveCardsToStorage();
+      return card;
+    }
+  }
+
+  // Nggak ada kartu sama sekali -> buat baru langsung di kolom "Berjalan"
+  card = {
+    id: uid(),
+    title: doc.items && doc.items.length ? doc.items.map(i=>i.name).filter(Boolean).join(', ') : doc.number,
+    clientName: doc.clientName || '', clientPhone: doc.clientPhone || '',
+    stage: 'active', quotationDocId: null, invoiceDocId: doc.id, mouDocId: null,
+    checklist: defaultChecklist.map(text => ({ id: uid(), text, done: false })),
+    notes: '', deadline: doc.dueDate || doc.date || today(), estValue: doc.total || 0,
+    createdAt: doc.createdAt || now(), updatedAt: now(), completedAt: null,
+  };
+  cards.push(card);
+  saveCardsToStorage();
+  return card;
+}
+
+// Jalan tiap kali app dibuka: pastikan SEMUA quotation/invoice yang ada (baik lama maupun baru,
+// dibuat lewat jalur mana pun) tetap punya kartu di Pipeline. Aman dijalankan berulang kali
+// karena ensureCardForQuotation/ensureCardForInvoice tidak membuat duplikat.
+function reconcileCardsWithDocuments() {
+  documents.filter(d => d.type === 'quotation').forEach(ensureCardForQuotation);
+  documents.filter(d => d.type === 'invoice').forEach(ensureCardForInvoice);
+}
+
+function onQuotationConfirmed(doc) {
+  let card = cards.find(c => c.quotationDocId === doc.id);
+  if (!card) {
+    card = {
+      id: uid(), title: doc.items && doc.items.length ? doc.items.map(i=>i.name).filter(Boolean).join(', ') : doc.number,
+      clientName: doc.clientName || '', clientPhone: doc.clientPhone || '',
+      stage: 'quotation', quotationDocId: doc.id, invoiceDocId: null,
+      checklist: [], notes: '', deadline: doc.dueDate || doc.date || today(), estValue: doc.total || 0,
+      createdAt: now(), updatedAt: now(), completedAt: null,
+    };
+    cards.push(card);
+  }
+  card.stage = 'active';
+  card.updatedAt = now();
+  if (!card.checklist || !card.checklist.length) {
+    card.checklist = defaultChecklist.map(text => ({ id: uid(), text, done: false }));
+  }
+
+  // Auto-generate invoice draft (silent, tidak buka editor / tidak trigger WA modal)
+  if (!card.invoiceDocId) {
+    const newInv = {
+      ...doc,
+      id: uid(),
+      type: 'invoice',
+      number: generateDocNumber('invoice'),
+      date: today(),
+      dueDate: '',
+      status: 'unpaid',
+      confirmed: true,
+      bankName: doc.bankName || settings.bankName || '',
+      bankNumber: doc.bankNumber || settings.bankNo || '',
+      bankHolder: doc.bankHolder || settings.bankHolder || '',
+      notes: settings.noteInv || doc.notes || '',
+      sourceQtId: doc.id,
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    documents.unshift(newInv);
+    incrementCounter('invoice');
+    DB.set('lf_docs', documents);
+    Cloud.push('sync_docs', documents);
+    card.invoiceDocId = newInv.id;
+    showToast(`🏃 Job dimulai & Invoice "${newInv.number}" otomatis dibuat (draft)`, 'success');
+  } else {
+    showToast('🏃 Job dimulai!', 'success');
+  }
+
+  saveCardsToStorage();
+  updateBadges();
+}
+
+// ── QUICK START MODAL ──
+function openQuickStartModal() {
+  quickStartMode = 'quotation';
+  document.getElementById('qs-btn-quotation').classList.add('active');
+  document.getElementById('qs-btn-direct').classList.remove('active');
+  document.getElementById('qs-direct-fields').style.display = 'none';
+  ['qsd-title','qsd-client','qsd-phone','qsd-value'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('qsd-deadline').value = today();
+  openModal('modal-quick-start');
+}
+
+function setQuickStartMode(mode) {
+  quickStartMode = mode;
+  document.getElementById('qs-btn-quotation').classList.toggle('active', mode==='quotation');
+  document.getElementById('qs-btn-direct').classList.toggle('active', mode==='direct');
+  document.getElementById('qs-direct-fields').style.display = mode==='direct' ? 'block' : 'none';
+}
+
+function submitQuickStart() {
+  if (quickStartMode === 'quotation') {
+    closeModal('modal-quick-start');
+    openNewDoc('quotation');
+    return;
+  }
+  const title = document.getElementById('qsd-title').value.trim();
+  const clientName = document.getElementById('qsd-client').value.trim();
+  const clientPhone = document.getElementById('qsd-phone').value.trim();
+  const value = parseFloat(document.getElementById('qsd-value').value) || 0;
+  const deadline = document.getElementById('qsd-deadline').value || today();
+  if (!title) { showToast('⚠️ Nama pekerjaan wajib diisi!', 'error'); return; }
+  if (!clientName) { showToast('⚠️ Nama klien wajib diisi!', 'error'); return; }
+
+  const card = {
+    id: uid(), title, clientName, clientPhone,
+    stage: 'active', quotationDocId: null, invoiceDocId: null,
+    checklist: defaultChecklist.map(text => ({ id: uid(), text, done: false })),
+    notes: '', deadline, estValue: value,
+    createdAt: now(), updatedAt: now(), completedAt: null,
+  };
+  cards.unshift(card);
+  saveCardsToStorage();
+  closeModal('modal-quick-start');
+  showToast('🏃 Pekerjaan baru ditambahkan ke Berjalan!', 'success');
+  renderPipeline();
+  openCardDetail(card.id);
+}
+
+// ── RENDER PAPAN PIPELINE ──
+function renderPipeline() {
+  const search = (document.getElementById('pl-search')?.value || '').toLowerCase();
+  const cols = { quotation: [], active: [], done: [] };
+
+  let monthRevenue = 0, unpaidTotal = 0, pipelineValue = 0, monthProfit = 0;
+  const now2 = new Date(); const curM = now2.getMonth(), curY = now2.getFullYear();
+
+  cards.forEach(card => {
+    if (search && !card.title.toLowerCase().includes(search) && !(card.clientName||'').toLowerCase().includes(search)) return;
+    reevaluateCardStage(card);
+    cols[card.stage] = cols[card.stage] || [];
+    cols[card.stage].push(card);
+
+    const inv = getCardInvoice(card);
+    if (inv) {
+      if (inv.status === 'paid' && inv.paymentDate) {
+        const pd = new Date(inv.paymentDate);
+        if (pd.getMonth()===curM && pd.getFullYear()===curY) {
+          monthRevenue += inv.total || 0;
+          const margin = calcDocMargin(inv);
+          if (margin) monthProfit += margin.profit;
+        }
+      } else if (inv.status !== 'paid') {
+        unpaidTotal += inv.total || 0;
+      }
+    } else if (card.stage === 'quotation') {
+      pipelineValue += cardEffectiveValue(card);
+    }
+  });
+  saveCardsToStorage();
+
+  document.getElementById('pl-revenue').textContent = fmtRp(monthRevenue);
+  document.getElementById('pl-unpaid').textContent = fmtRp(unpaidTotal);
+  document.getElementById('pl-pipeline-value').textContent = fmtRp(pipelineValue);
+  document.getElementById('pl-profit').textContent = fmtRp(monthProfit);
+
+  ['quotation','active','done'].forEach(stage => {
+    const list = cols[stage] || [];
+    document.getElementById('pl-count-'+stage).textContent = list.length;
+    const body = document.getElementById('pl-col-'+stage);
+    if (!list.length) {
+      body.innerHTML = `<div class="pl-empty-col">Belum ada</div>`;
+      return;
+    }
+    body.innerHTML = list.map(card => renderCardHTML(card, stage)).join('');
+  });
+}
+
+function renderCardHTML(card, stage) {
+  const value = cardEffectiveValue(card);
+  let inner = `<div class="pl-card-title">${card.title}</div>`;
+  inner += card.clientName ? `<div class="pl-card-client">👤 ${card.clientName}</div>` : '';
+
+  if (stage === 'active') {
+    const prog = cardChecklistProgress(card);
+    if (prog.total > 0) {
+      inner += `<div class="pl-card-progress-bar"><div class="pl-card-progress-fill" style="width:${prog.pct}%"></div></div>
+        <div class="pl-card-progress-label">${prog.done}/${prog.total} langkah selesai</div>`;
+    }
+    const inv = getCardInvoice(card);
+    inner += `<div class="pl-card-badges">`;
+    if (inv) {
+      inner += inv.status === 'paid'
+        ? `<span class="pl-badge paid">✅ Lunas</span>`
+        : `<span class="pl-badge unpaid">⏳ Belum Dibayar</span>`;
+    } else {
+      inner += `<span class="pl-badge unpaid">📝 Belum ada invoice</span>`;
+    }
+    inner += `</div>`;
+  } else if (stage === 'done') {
+    inner += `<div class="pl-card-badges"><span class="pl-badge paid">✅ Selesai</span></div>`;
+  }
+
+  inner += `<div class="pl-card-value">${fmtRp(value)}</div>`;
+  return `<div class="pl-card" onclick="openCardDetail('${card.id}')">${inner}</div>`;
+}
+
+// ── CARD DETAIL MODAL ──
+function openCardDetail(id) {
+  const card = cards.find(c => c.id === id);
+  if (!card) return;
+  currentCardId = id;
+
+  document.getElementById('cd-title').value = card.title;
+  document.getElementById('cd-client').value = card.clientName || '';
+  document.getElementById('cd-phone').value = card.clientPhone || '';
+  document.getElementById('cd-deadline').value = card.deadline || '';
+  document.getElementById('cd-notes').value = card.notes || '';
+
+  renderCardChecklist(card);
+  renderCardFinanceSection(card);
+
+  document.getElementById('cd-stage-badge').textContent = { quotation:'💬 Quotation', active:'🏃 Berjalan', done:'✅ Selesai' }[card.stage];
+  openModal('modal-card-detail');
+}
+
+function renderCardChecklist(card) {
+  const wrap = document.getElementById('cd-checklist-list');
+  wrap.innerHTML = (card.checklist||[]).map(s => `
+    <div class="cd-checklist-row ${s.done?'done':''}">
+      <input type="checkbox" ${s.done?'checked':''} onchange="toggleCardChecklistItem('${s.id}')">
+      <span>${s.text}</span>
+      <button class="rm-btn" onclick="removeCardChecklistItem('${s.id}')">✕</button>
+    </div>`).join('') || `<div style="font-size:12px;color:var(--mid)">Belum ada langkah kerja.</div>`;
+}
+
+function toggleCardChecklistItem(subId) {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  const item = card.checklist.find(s => s.id === subId);
+  if (!item) return;
+  item.done = !item.done;
+  card.updatedAt = now();
+  reevaluateCardStage(card);
+  saveCardsToStorage();
+  renderCardChecklist(card);
+  document.getElementById('cd-stage-badge').textContent = { quotation:'💬 Quotation', active:'🏃 Berjalan', done:'✅ Selesai' }[card.stage];
+}
+
+function removeCardChecklistItem(subId) {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  card.checklist = card.checklist.filter(s => s.id !== subId);
+  saveCardsToStorage();
+  renderCardChecklist(card);
+}
+
+function addCardChecklistItem() {
+  const input = document.getElementById('cd-new-checklist-text');
+  const text = input.value.trim();
+  if (!text) return;
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  card.checklist = card.checklist || [];
+  card.checklist.push({ id: uid(), text, done: false });
+  input.value = '';
+  saveCardsToStorage();
+  renderCardChecklist(card);
+}
+
+function renderCardFinanceSection(card) {
+  const wrap = document.getElementById('cd-finance-section');
+  const qt = getCardQuotation(card);
+  const inv = getCardInvoice(card);
+  const mou = getCardMou(card);
+
+  let html = '';
+  if (qt) {
+    html += `<div class="cd-fin-box" style="margin-bottom:8px">
+      <span>💬 Quotation <b>#${qt.number}</b> — ${fmtRp(qt.total||0)}</span>
+      <button class="btn btn-ghost btn-sm" onclick="openNewDoc('quotation','${qt.id}')">✏️ Buka</button>
+    </div>`;
+  }
+  if (inv) {
+    const statusBadge = inv.status === 'paid'
+      ? `<span class="pl-badge paid">✅ Lunas</span>`
+      : `<span class="pl-badge unpaid">⏳ Belum Dibayar</span>`;
+    html += `<div class="cd-fin-box" style="margin-bottom:8px">
+      <span>🧾 Invoice <b>#${inv.number}</b> — ${fmtRp(inv.total||0)} ${statusBadge}</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-gold btn-sm" onclick="sendCardInvoiceViaWa('${inv.id}')">📤 Kirim</button>
+        <button class="btn btn-ghost btn-sm" onclick="openNewDoc('invoice','${inv.id}')">✏️ Buka</button>
+        ${inv.status !== 'paid' ? `<button class="btn btn-sm" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7" onclick="quickMarkPaidFromCard('${inv.id}')">✅ Tandai Lunas</button>` : ''}
+      </div>
+    </div>`;
+  } else {
+    html += `<div class="cd-fin-box" style="margin-bottom:8px">
+      <span style="color:var(--mid);font-size:12.5px">📝 Belum ada invoice untuk pekerjaan ini</span>
+      <button class="btn btn-primary btn-sm" onclick="createInvoiceFromCard()">+ Buat Invoice</button>
+    </div>`;
+  }
+
+  if (mou) {
+    html += `<div class="cd-fin-box">
+      <span>📜 MOU <b>#${mou.number}</b> — ${fmtRp(mou.total||0)}</span>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-gold btn-sm" onclick="sendCardMouViaWa('${mou.id}')">📤 Kirim</button>
+        <button class="btn btn-ghost btn-sm" onclick="openNewDoc('mou','${mou.id}')">✏️ Buka</button>
+      </div>
+    </div>`;
+  } else {
+    html += `<div class="cd-fin-box">
+      <span style="color:var(--mid);font-size:12.5px">📜 Belum ada MOU / perjanjian kerjasama</span>
+      <button class="btn btn-ghost btn-sm" onclick="createMouFromCard()">+ Buat MOU</button>
+    </div>`;
+  }
+  wrap.innerHTML = html;
+}
+
+function quickMarkPaidFromCard(invId) {
+  closeModal('modal-card-detail');
+  quickMarkPaid(invId);
+}
+
+function sendCardInvoiceViaWa(invId) {
+  const doc = documents.find(d => d.id === invId);
+  if (!doc) return;
+  closeModal('modal-card-detail');
+  openNewDoc('invoice', invId); // isi form tersembunyi dari data invoice ini
+  openSendWaModal(doc);
+  navigate('pipeline');
+}
+
+function sendCardMouViaWa(mouId) {
+  const doc = documents.find(d => d.id === mouId);
+  if (!doc) return;
+  closeModal('modal-card-detail');
+  openNewDoc('mou', mouId);
+  openSendWaModal(doc);
+  navigate('pipeline');
+}
+
+function createInvoiceFromCard() {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  const cardId = card.id;
+  closeModal('modal-card-detail');
+  openNewDoc('invoice');
+  pendingCardLink = { cardId, field: 'invoiceDocId' };
+  // Prefill klien setelah editor terbuka
+  setTimeout(() => {
+    document.getElementById('client-name').value = card.clientName || '';
+    if (card.clientPhone) document.getElementById('client-phone').value = card.clientPhone;
+    onClientInput();
+    if (card.estValue > 0 && document.querySelectorAll('#items-card-list .item-card').length === 0) {
+      addItemRow({ name: card.title, qty: 1, price: card.estValue });
+      updateTotals();
+    }
+  }, 150);
+}
+
+function createMouFromCard() {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  const cardId = card.id;
+  const sourceDoc = getCardInvoice(card) || getCardQuotation(card);
+  closeModal('modal-card-detail');
+  openNewDoc('mou');
+  pendingCardLink = { cardId, field: 'mouDocId' };
+  // Prefill klien & item dari invoice/quotation yang tertaut (kalau ada)
+  setTimeout(() => {
+    document.getElementById('client-name').value = card.clientName || '';
+    if (card.clientPhone) document.getElementById('client-phone').value = card.clientPhone;
+    onClientInput();
+    document.getElementById('items-card-list').innerHTML = ''; // bersihkan baris kosong bawaan
+    if (sourceDoc && sourceDoc.items && sourceDoc.items.length) {
+      sourceDoc.items.forEach(it => addItemRow(it));
+    } else if (card.estValue > 0) {
+      addItemRow({ name: card.title, qty: 1, price: card.estValue });
+    } else {
+      addItemRow();
+    }
+    updateTotals();
+    updatePreview();
+  }, 150);
+}
+
+function saveCardDetails() {
+  const card = cards.find(c => c.id === currentCardId);
+  if (!card) return;
+  card.title = document.getElementById('cd-title').value.trim() || card.title;
+  card.clientName = document.getElementById('cd-client').value.trim();
+  card.clientPhone = document.getElementById('cd-phone').value.trim();
+  card.deadline = document.getElementById('cd-deadline').value;
+  card.notes = document.getElementById('cd-notes').value.trim();
+  card.updatedAt = now();
+  saveCardsToStorage();
+  closeModal('modal-card-detail');
+  renderPipeline();
+  showToast('✅ Pekerjaan disimpan!', 'success');
+}
+
+function deleteCard() {
+  if (!confirm('Hapus pekerjaan ini dari Pipeline? (Dokumen quotation/invoice yang tertaut tidak ikut terhapus)')) return;
+  cards = cards.filter(c => c.id !== currentCardId);
+  saveCardsToStorage();
+  closeModal('modal-card-detail');
+  renderPipeline();
+  showToast('🗑️ Pekerjaan dihapus dari Pipeline', 'success');
+}
+
+function fmtRp(n) { return 'Rp ' + (Math.round(n)||0).toLocaleString('id-ID'); }
+function fmtDate(d) { if (!d) return ''; try { return new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}); } catch { return d; } }
+function esc(s) { return (s||'').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function updateBadges() {
+  const el = id => document.getElementById(id);
+
+  // Total dokumen di sidebar
+  if (el('doc-count-badge')) el('doc-count-badge').textContent = documents.length;
+
+  // Badge per tipe (jumlah semua, termasuk semua status)
+  const qtCount  = documents.filter(d=>d.type==='quotation').length;
+  const spCount  = documents.filter(d=>d.type==='proposal').length;
+  const invCount = documents.filter(d=>d.type==='invoice').length;
+  const bpCount  = documents.filter(d=>d.type==='receipt').length;
+
+  if (el('nav-badge-qt'))  { el('nav-badge-qt').textContent  = qtCount;  el('nav-badge-qt').style.display  = qtCount  ? 'inline':'none'; }
+  if (el('nav-badge-sp'))  { el('nav-badge-sp').textContent  = spCount;  el('nav-badge-sp').style.display  = spCount  ? 'inline':'none'; }
+  if (el('nav-badge-inv')) { el('nav-badge-inv').textContent = invCount; el('nav-badge-inv').style.display = invCount ? 'inline':'none'; }
+  if (el('nav-badge-bp'))  { el('nav-badge-bp').textContent  = bpCount;  el('nav-badge-bp').style.display  = bpCount  ? 'inline':'none'; }
+
+  // Badge Job Tracker: hitung job yang belum 100% selesai
+  if (el('job-count-badge')) {
+    const activeJobs = jobs.filter(j => {
+      const total = (j.subtasks||[]).length, done = (j.subtasks||[]).filter(s=>s.done).length;
+      return !(total > 0 && done === total);
+    }).length;
+    el('job-count-badge').textContent = activeJobs;
+  }
+}
+
+// ══════════════════════════════════════════
+// ── JOB TRACKER ──
+// ══════════════════════════════════════════
+
+function saveJobsToStorage() {
+  DB.set('lf_jobs', jobs);
+  Cloud.push('sync_jobs', jobs);
+  updateBadges();
+}
+
+// Buat / update job otomatis dari dokumen yang sudah di-ACC
+function syncJobFromDocument(doc) {
+  const existing = jobs.find(j => j.linkedDocId === doc.id);
+  const deadline = doc.dueDate || doc.date || today();
+
+  if (existing) {
+    // Update info yang mengikuti dokumen, tapi jangan timpa progres/checklist manual user
+    existing.clientName = doc.clientName;
+    existing.deadline = existing.deadline || deadline;
+    existing.linkedDocNumber = doc.number;
+    existing.linkedDocType = doc.type;
+    saveJobsToStorage();
+    showToast('🔄 Job Tracker disinkronkan dari dokumen ini', 'success');
+    return;
+  }
+
+  const itemTitles = (doc.items || []).map(i => i.name).filter(Boolean);
+  const title = itemTitles.length ? itemTitles.join(', ') : `${doc.type === 'invoice' ? 'Invoice' : 'Quotation'} ${doc.number}`;
+
+  const newJob = {
+    id: uid(),
+    title,
+    clientName: doc.clientName || '',
+    category: jobCategories[0] || 'Umum',
+    notes: `Dibuat otomatis dari ${doc.type === 'invoice' ? 'Invoice' : 'Quotation'} #${doc.number} (di-ACC klien).`,
+    deadline,
+    completedDate: null,
+    isLateOnCompletion: false,
+    subtasks: [
+      { id: uid(), text: 'Briefing & Persiapan', done: false },
+      { id: uid(), text: 'Pelaksanaan / Shooting', done: false },
+      { id: uid(), text: 'Editing', done: false },
+      { id: uid(), text: 'Delivery ke Klien', done: false },
+    ],
+    linkedDocId: doc.id,
+    linkedDocType: doc.type,
+    linkedDocNumber: doc.number,
+    source: 'auto',
+    createdAt: now(),
+  };
+  jobs.unshift(newJob);
+  saveJobsToStorage();
+  showToast('🗂️ Job baru otomatis ditambahkan ke Job Tracker!', 'success');
+}
+
+function updateJobCategoryOptions() {
+  const sel = document.getElementById('j-category');
+  if (sel) sel.innerHTML = jobCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+
+  const tabs = document.getElementById('job-category-tabs');
+  if (tabs) {
+    tabs.innerHTML = `<button class="tab-btn ${selectedJobCategory==='ALL'?'active':''}" onclick="filterJobsByCategory('ALL',this)">Semua Kategori</button>` +
+      jobCategories.map(c => `<button class="tab-btn ${selectedJobCategory===c?'active':''}" onclick="filterJobsByCategory('${c.replace(/'/g,"\\'")}',this)">${c}</button>`).join('');
+  }
+}
+
+function filterJobsByCategory(cat, btn) {
+  selectedJobCategory = cat;
+  document.querySelectorAll('#job-category-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderJobs();
+}
+
+function addNewJobCategoryPrompt() {
+  const name = prompt('Nama kategori baru:');
+  if (!name || !name.trim()) return;
+  if (!jobCategories.includes(name.trim())) {
+    jobCategories.push(name.trim());
+    DB.set('lf_job_categories', jobCategories);
+    Cloud.push('sync_job_categories', jobCategories);
+    updateJobCategoryOptions();
+  }
+  document.getElementById('j-category').value = name.trim();
+}
+
+function setJobFilter(f) {
+  currentJobFilter = f;
+  renderJobs();
+}
+
+function openJobModal(id = null) {
+  currentJobId = id;
+  updateJobCategoryOptions();
+  document.getElementById('job-subtask-inputs').innerHTML = '';
+  document.getElementById('job-link-info').style.display = 'none';
+
+  if (id) {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+    document.getElementById('job-modal-title').textContent = 'Edit Job';
+    document.getElementById('j-id').value = job.id;
+    document.getElementById('j-title').value = job.title;
+    document.getElementById('j-client').value = job.clientName || '';
+    document.getElementById('j-deadline').value = job.deadline;
+    document.getElementById('j-category').value = job.category;
+    document.getElementById('j-notes').value = job.notes || '';
+    (job.subtasks || []).forEach(s => addJobSubtaskRow(s.text, s.done));
+    if (job.linkedDocId) {
+      const li = document.getElementById('job-link-info');
+      li.style.display = 'block';
+      li.innerHTML = `🔗 Tertaut ke ${job.linkedDocType === 'invoice' ? 'Invoice' : 'Quotation'} #${job.linkedDocNumber}`;
+    } else if (job.source === 'auto') {
+      const li = document.getElementById('job-link-info');
+      li.style.display = 'block';
+      li.innerHTML = `⚠️ Dokumen sumber job ini sudah dihapus.`;
+    }
+  } else {
+    document.getElementById('job-modal-title').textContent = 'Tambah Job Baru';
+    document.getElementById('j-id').value = '';
+    document.getElementById('j-title').value = '';
+    document.getElementById('j-client').value = '';
+    document.getElementById('j-deadline').value = today();
+    document.getElementById('j-notes').value = '';
+    addJobSubtaskRow('');
+  }
+  openModal('modal-job');
+}
+
+function addJobSubtaskRow(text = '', done = false) {
+  const container = document.getElementById('job-subtask-inputs');
+  const row = document.createElement('div');
+  row.className = 'job-subtask-input-row';
+  row.innerHTML = `
+    <input type="checkbox" ${done ? 'checked' : ''} class="j-sub-done">
+    <input type="text" class="j-sub-text" placeholder="Cth: Sortir foto RAW" value="${text.replace(/"/g,'&quot;')}">
+    <button type="button" class="item-remove-btn" onclick="this.parentElement.remove()">✕</button>
+  `;
+  container.appendChild(row);
+}
+
+function saveJob() {
+  const title = document.getElementById('j-title').value.trim();
+  const deadline = document.getElementById('j-deadline').value;
+  if (!title) { showToast('⚠️ Nama job wajib diisi!', 'error'); return; }
+  if (!deadline) { showToast('⚠️ Deadline wajib diisi!', 'error'); return; }
+
+  const subtasks = [];
+  document.querySelectorAll('#job-subtask-inputs .job-subtask-input-row').forEach(row => {
+    const text = row.querySelector('.j-sub-text').value.trim();
+    const done = row.querySelector('.j-sub-done').checked;
+    if (text) subtasks.push({ id: uid(), text, done });
+  });
+
+  const id = document.getElementById('j-id').value;
+  if (id) {
+    const job = jobs.find(j => j.id === id);
+    if (!job) return;
+    const wasDone = job.subtasks.length > 0 && job.subtasks.every(s => s.done);
+    job.title = title;
+    job.clientName = document.getElementById('j-client').value.trim();
+    job.deadline = deadline;
+    job.category = document.getElementById('j-category').value;
+    job.notes = document.getElementById('j-notes').value.trim();
+    job.subtasks = subtasks;
+    const isNowDone = subtasks.length > 0 && subtasks.every(s => s.done);
+    if (isNowDone && !wasDone) {
+      job.completedDate = today();
+      job.isLateOnCompletion = new Date(today()) > new Date(job.deadline);
+    } else if (!isNowDone) {
+      job.completedDate = null;
+    }
+  } else {
+    jobs.unshift({
+      id: uid(),
+      title,
+      clientName: document.getElementById('j-client').value.trim(),
+      category: document.getElementById('j-category').value,
+      notes: document.getElementById('j-notes').value.trim(),
+      deadline,
+      completedDate: null,
+      isLateOnCompletion: false,
+      subtasks,
+      linkedDocId: null, linkedDocType: null, linkedDocNumber: null,
+      source: 'manual',
+      createdAt: now(),
+    });
+  }
+  saveJobsToStorage();
+  closeModal('modal-job');
+  renderJobs();
+  showToast('✅ Job berhasil disimpan!', 'success');
+}
+
+function toggleJobSubtask(jobId, subId) {
+  const job = jobs.find(j => j.id === jobId);
+  if (!job) return;
+  const sub = job.subtasks.find(s => s.id === subId);
+  if (!sub) return;
+  sub.done = !sub.done;
+  const isDone = job.subtasks.length > 0 && job.subtasks.every(s => s.done);
+  if (isDone && !job.completedDate) {
+    job.completedDate = today();
+    job.isLateOnCompletion = new Date(today()) > new Date(job.deadline);
+  } else if (!isDone) {
+    job.completedDate = null;
+  }
+  saveJobsToStorage();
+  renderJobs();
+}
+
+function deleteJob(id) {
+  if (!confirm('Hapus job ini dari tracker?')) return;
+  jobs = jobs.filter(j => j.id !== id);
+  saveJobsToStorage();
+  renderJobs();
+  showToast('🗑️ Job dihapus', 'success');
+}
+
+function editJob(id) { openJobModal(id); }
+
+function openDocFromJob(docId) {
+  if (!docId) return;
+  const doc = documents.find(d => d.id === docId);
+  if (!doc) { showToast('⚠️ Dokumen sumber sudah tidak ada', 'error'); return; }
+  openNewDoc(doc.type, docId);
+}
+
+function renderJobs() {
+  const listEl = document.getElementById('jobs-list');
+  const searchVal = (document.getElementById('job-search-bar')?.value || '').toLowerCase();
+  if (!listEl) return;
+  listEl.innerHTML = '';
+
+  let totalCount = 0, ongoingCount = 0, urgentCount = 0, doneCount = 0;
+  let onTimeDone = 0, lateDone = 0;
+  let monthlyProfit = 0, monthlyProfitJobCount = 0;
+  const todayD = new Date(); todayD.setHours(0,0,0,0);
+  const curMonth = todayD.getMonth(), curYear = todayD.getFullYear();
+
+  ['all','ongoing','urgent','done'].forEach(f => {
+    const card = document.getElementById(`jcard-${f}`);
+    if (!card) return;
+    card.style.borderLeft = f === currentJobFilter ? '3px solid var(--gold)' : '';
+  });
+
+  const cardsToRender = [];
+
+  jobs.forEach(job => {
+    const totalSub = (job.subtasks||[]).length;
+    const doneSub = (job.subtasks||[]).filter(s=>s.done).length;
+    const progressPercent = totalSub > 0 ? Math.round((doneSub/totalSub)*100) : 0;
+    const dlDate = new Date(job.deadline); dlDate.setHours(0,0,0,0);
+    const daysDiff = Math.ceil((dlDate.getTime() - todayD.getTime()) / (1000*3600*24));
+    const isDone = totalSub > 0 && progressPercent === 100;
+    const isUrgent = !isDone && daysDiff <= 2;
+
+    if (isDone) { doneCount++; if (job.isLateOnCompletion) lateDone++; else onTimeDone++; }
+    else { ongoingCount++; totalCount++; if (isUrgent) urgentCount++; }
+
+    // Akumulasi profit dari job yang selesai bulan ini & punya data margin
+    if (isDone && job.completedDate) {
+      const cd = new Date(job.completedDate);
+      if (cd.getMonth() === curMonth && cd.getFullYear() === curYear) {
+        const margin = calcJobMargin(job);
+        if (margin) { monthlyProfit += margin.profit; monthlyProfitJobCount++; }
+      }
+    }
+
+    if (currentJobFilter === 'all' && isDone) return;
+    if (currentJobFilter === 'ongoing' && isDone) return;
+    if (currentJobFilter === 'urgent' && (!isUrgent || isDone)) return;
+    if (currentJobFilter === 'done' && !isDone) return;
+    if (selectedJobCategory !== 'ALL' && job.category !== selectedJobCategory) return;
+    if (searchVal && !job.title.toLowerCase().includes(searchVal) && !(job.clientName||'').toLowerCase().includes(searchVal) && !(job.notes||'').toLowerCase().includes(searchVal)) return;
+
+    let stripeClass = isDone ? (job.isLateOnCompletion ? 'late' : 'done') : (isUrgent ? 'urgent' : 'ongoing');
+    let badgeClass = stripeClass;
+    let badgeText = '';
+    if (isDone) {
+      badgeText = job.isLateOnCompletion ? 'Selesai (Terlambat)' : 'Selesai Tepat Waktu';
+    } else {
+      badgeText = daysDiff < 0 ? `Telat ${Math.abs(daysDiff)} Hari` : (daysDiff === 0 ? 'Hari Ini!' : `Sisa ${daysDiff} Hari`);
+    }
+
+    const formattedDeadline = dlDate.toLocaleDateString('id-ID', { day:'numeric', month:'short' });
+    const linkPill = job.linkedDocId
+      ? `<span class="job-link-pill" onclick="openDocFromJob('${job.linkedDocId}')">🔗 ${job.linkedDocType==='invoice'?'INV':'QT'} #${job.linkedDocNumber}</span>`
+      : (job.source === 'auto' ? `<span class="job-link-pill" style="background:#f0f0f0;color:#999">⚠️ Sumber terhapus</span>` : '');
+    const notesHTML = job.notes ? `<div class="job-notes-box">💬 ${job.notes}</div>` : '';
+    const margin = calcJobMargin(job);
+    const marginHTML = margin
+      ? `<div style="font-size:11px;font-weight:700;color:#166534;background:#F0FDF4;border:1px solid #BBF7D0;border-radius:6px;padding:4px 8px;margin-bottom:8px;display:inline-block">💹 Profit: ${fmtRp(margin.profit)} (${margin.marginPct}%)</div>`
+      : '';
+
+    const card = document.createElement('div');
+    card.className = 'job-card';
+    card.innerHTML = `
+      <div class="stripe ${stripeClass}"></div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center">
+          <span class="job-cat-pill">${job.category}</span>
+          ${linkPill}
+        </div>
+        <span class="job-deadline-badge ${badgeClass}">${badgeText}</span>
+      </div>
+      <div class="job-title">${job.title}</div>
+      ${job.clientName ? `<div class="job-client">👤 Klien: <b>${job.clientName}</b></div>` : ''}
+      ${notesHTML}
+      ${marginHTML}
+      <div class="job-progress-bar"><div class="job-progress-fill ${isDone?'done':''}" style="width:${progressPercent}%"></div></div>
+      <div style="font-size:11px;color:var(--mid);margin-bottom:6px">${progressPercent}% selesai</div>
+      <div>
+        ${(job.subtasks||[]).map(s => `
+          <label class="job-subtask-row ${s.done?'done':''}">
+            <input type="checkbox" ${s.done?'checked':''} onchange="toggleJobSubtask('${job.id}','${s.id}')">
+            <span>${s.text}</span>
+          </label>`).join('')}
+      </div>
+      <div class="job-footer">
+        <span>📅 DL: ${formattedDeadline}${isDone && job.completedDate ? ` · Selesai: ${job.completedDate}` : ''}</span>
+        <div class="actions">
+          <button onclick="editJob('${job.id}')" title="Edit">✏️</button>
+          <button onclick="deleteJob('${job.id}')" title="Hapus">🗑️</button>
+        </div>
+      </div>
+    `;
+    cardsToRender.push(card);
+  });
+
+  if (cardsToRender.length === 0) {
+    listEl.innerHTML = `<div class="empty-state" style="grid-column:1/-1"><div class="icon">🗂️</div><p>Belum ada job di kategori/filter ini.</p></div>`;
+  } else {
+    cardsToRender.forEach(c => listEl.appendChild(c));
+  }
+
+  document.getElementById('jstat-all').textContent = totalCount;
+  document.getElementById('jstat-ongoing').textContent = ongoingCount;
+  document.getElementById('jstat-urgent').textContent = urgentCount;
+  document.getElementById('jstat-done').textContent = doneCount;
+
+  document.getElementById('jperf-ontime').textContent = onTimeDone;
+  document.getElementById('jperf-late').textContent = lateDone;
+  const totalDone = onTimeDone + lateDone;
+  document.getElementById('jperf-rate').textContent = (totalDone > 0 ? Math.round((onTimeDone/totalDone)*100) : 0) + '%';
+
+  document.getElementById('jstat-profit').textContent = fmtRp(monthlyProfit);
+  document.getElementById('jstat-profit-sub').textContent = monthlyProfitJobCount > 0
+    ? `dari ${monthlyProfitJobCount} job selesai bulan ini`
+    : 'belum ada job selesai dgn data HPP bulan ini';
+}
+
+// ══════════════════════════════════════════
+// ── KIRIM DOKUMEN VIA WHATSAPP ──
+// ══════════════════════════════════════════
+
+let waPendingBlob = null;
+let waPendingFilename = null;
+
+function sanitizeFilename(str) {
+  return (str || '').replace(/[\/\\?%*:|"<>]/g, '-').replace(/\s+/g, ' ').trim();
+}
+
+function normalizePhone(phone) {
+  let digits = (phone || '').replace(/[^0-9]/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0')) digits = '62' + digits.slice(1);
+  else if (!digits.startsWith('62')) digits = '62' + digits;
+  return digits;
+}
+
+function waMessageTemplate(doc) {
+  const brandName = settings.brandName || 'Kala Project';
+  const typeLabel = { quotation:'Quotation', proposal:'Surat Penawaran', invoice:'Invoice', receipt:'Bukti Pembayaran', mou:'MOU' }[doc.type] || 'Dokumen';
+  const total = fmtRp(doc.total || 0);
+  let base = `Halo ${doc.clientName || ''} 👋\n\nBerikut kami kirimkan *${typeLabel}* dari ${brandName}.\n\n📄 No. Dokumen: ${doc.number}\n💰 Total: ${total}`;
+  if (doc.type === 'invoice') {
+    base += doc.status === 'paid' ? `\n✅ Status: Lunas` : `\n⏳ Status: Menunggu pembayaran`;
+  }
+  if (doc.type === 'mou') {
+    base += `\n\nMohon dibaca, ditandatangani, dan dikirim balik ya (foto/scan) sebagai tanda persetujuan kerjasama.`;
+  } else {
+    base += `\n\nMohon dicek ya, terima kasih banyak atas kepercayaannya 🙏`;
+  }
+  return base;
+}
+
+// Bangun ulang #print-doc dari state form yang sedang aktif, lalu render ke PDF blob
+async function generateDocPdfBlob() {
+  updatePreview();
+  const target = document.getElementById('pdf-render-target');
+  target.innerHTML = document.getElementById('print-doc').innerHTML;
+
+  const opt = {
+    margin: 0,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['css'], before: '.p2' }
+  };
+  const blob = await html2pdf().set(opt).from(target).outputPdf('blob');
+  target.innerHTML = '';
+  return blob;
+}
+
+async function openSendWaModal(doc) {
+  document.getElementById('wa-phone').value = normalizePhone(doc.clientPhone);
+  document.getElementById('wa-message').value = waMessageTemplate(doc);
+  document.getElementById('wa-send-btn').disabled = true;
+  document.getElementById('wa-status-area').innerHTML = `
+    <div class="wa-file-preview"><span class="wa-loading-spinner"></span><span>Menyiapkan file PDF...</span></div>`;
+  document.getElementById('wa-hint-text').textContent = '';
+  openModal('modal-send-wa');
+
+  const typeLabel = { quotation:'Quotation', proposal:'SP', invoice:'Invoice', receipt:'BP', mou:'MOU' }[doc.type] || 'Doc';
+  waPendingFilename = sanitizeFilename(`${doc.number || typeLabel} - ${doc.clientName || 'Klien'}`) + '.pdf';
+
+  try {
+    waPendingBlob = await generateDocPdfBlob();
+    document.getElementById('wa-status-area').innerHTML = `
+      <div class="wa-file-preview"><span class="icon">📄</span><span>${waPendingFilename} siap dikirim</span></div>`;
+    document.getElementById('wa-send-btn').disabled = false;
+
+    // Deteksi kemampuan share file langsung (biasanya HP/Android Chrome, sebagian iOS Safari)
+    const testFile = new File([waPendingBlob], waPendingFilename, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [testFile] })) {
+      document.getElementById('wa-hint-text').textContent = '📱 File PDF akan otomatis ikut terlampir lewat menu share HP kamu.';
+    } else {
+      document.getElementById('wa-hint-text').textContent = '💻 PDF akan otomatis terdownload, lalu WhatsApp terbuka dengan pesan siap kirim — tinggal attach file yang barusan kedownload.';
+    }
+  } catch (err) {
+    console.error('Gagal generate PDF:', err);
+    document.getElementById('wa-status-area').innerHTML = `
+      <div class="wa-file-preview" style="background:#FEF2F2;border-color:#FECACA;color:#991B1B">⚠️ Gagal membuat PDF otomatis. Kamu tetap bisa kirim pesan tanpa lampiran, lalu cetak manual lewat tombol Preview.</div>`;
+    document.getElementById('wa-send-btn').disabled = false;
+    waPendingBlob = null;
+  }
+}
+
+async function confirmSendWa() {
+  const phone = document.getElementById('wa-phone').value.trim();
+  const message = document.getElementById('wa-message').value;
+  if (!phone) { showToast('⚠️ Nomor WhatsApp klien wajib diisi!', 'error'); return; }
+
+  const waUrl = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+
+  if (waPendingBlob) {
+    const file = new File([waPendingBlob], waPendingFilename, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], text: message, title: waPendingFilename });
+        closeModal('modal-send-wa');
+        showToast('✅ Dibagikan lewat menu share!', 'success');
+        return;
+      } catch (err) {
+        // Kalau user cancel share, jangan lanjut buka wa.me otomatis
+        if (err.name === 'AbortError') return;
+        console.error('Share gagal:', err);
+      }
+    }
+    // Fallback desktop: download dulu lalu buka WA
+    const dlUrl = URL.createObjectURL(waPendingBlob);
+    const a = document.createElement('a');
+    a.href = dlUrl;
+    a.download = waPendingFilename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(dlUrl), 5000);
+    showToast('📥 PDF terdownload — attach manual ke chat WA yang baru terbuka', 'success');
+  }
+
+  window.open(waUrl, '_blank');
+  closeModal('modal-send-wa');
+}
+
+// ── CLOSE AUTOCOMPLETE ON CLICK OUTSIDE ──
+document.addEventListener('click', e => {
+  if (!e.target.closest('.autocomplete-wrap')) {
+    document.querySelectorAll('.autocomplete-list').forEach(l => l.style.display = 'none');
+  }
+});
+
+// ── INIT ──
+async function initCloudSync(manual = false) {
+  if (!Cloud.enabled()) {
+    Cloud.setStatus('off');
+    if (manual) showToast('⚠️ URL Sync belum diisi di Pengaturan → Sinkronisasi', 'error');
+    return;
+  }
+  const pulled = await Cloud.pull();
+  if (pulled) {
+    updateBadges();
+    renderPipeline();
+    if (manual) showToast('✅ Data berhasil diambil dari cloud!', 'success');
+  }
+}
+
+window.addEventListener('load', async () => {
+  await initCloudSync(); // kalau device baru & cloud sync aktif, ini isi documents/jobs dulu
+  migrateToCardsIfNeeded();
+  reconcileCardsWithDocuments();
+  updateBadges();
+  renderPipeline();
+});
+</script>
+</body>
+</html>
